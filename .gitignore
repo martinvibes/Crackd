@@ -31,3 +31,7 @@ npm-debug.log*
 contracts/deployments/testnet.json
 
 /docs
+
+.claude
+/.claude
+.claude/settings.json

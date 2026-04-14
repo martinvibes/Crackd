@@ -7,6 +7,7 @@
  */
 import { config as loadDotenv } from "dotenv";
 import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 
@@ -14,7 +15,17 @@ import { z } from "zod";
 // `override: false` means later calls never clobber earlier ones — so
 // .env.local wins, which is the expected precedence.
 const here = path.dirname(fileURLToPath(import.meta.url));
-const backendRoot = path.resolve(here, "..", "..");
+// `here` is .../backend/src in dev (tsx) and .../backend/dist in prod.
+// Walk up until we find a package.json — that's the backend root.
+function findBackendRoot(start: string): string {
+  let dir = start;
+  for (let i = 0; i < 5; i++) {
+    if (existsSync(path.join(dir, "package.json"))) return dir;
+    dir = path.resolve(dir, "..");
+  }
+  return start;
+}
+const backendRoot = findBackendRoot(here);
 loadDotenv({ path: path.join(backendRoot, ".env.local"), override: false });
 loadDotenv({ path: path.join(backendRoot, ".env"), override: false });
 

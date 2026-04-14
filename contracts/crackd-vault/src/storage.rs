@@ -1,91 +1,77 @@
-//! Typed wrappers around contract storage with sensible TTL policies.
+//! Typed storage wrappers, multi-asset.
 //!
-//! - **Instance** storage: admin, token, pool balance, reset time, leaderboard.
-//!   Loaded on every call anyway, so co-locate with contract instance.
-//! - **Persistent** storage: per-player stats — we want these to outlive any
-//!   TTL horizon and be kept alive as long as the player keeps playing.
-//! - **Temporary** storage: per-player daily winnings. TTL = just over 24h
-//!   so the next-day window starts with a clean slate automatically.
-use soroban_sdk::{Address, Env, Vec};
+//! Every pool/cap entry is keyed by the `token` SAC address, so one
+//! contract instance serves XLM, USDC, and any future asset without
+//! state collisions.
+//!
+//! TTL policy:
+//! - Admin: instance (always loaded).
+//! - Pool balance / reset / leaderboard: instance per-asset (cheap to bump).
+//! - PlayerStats: persistent — long-lived per-player history.
+//! - PlayerEarnings: persistent — per-player map of token → earnings.
+//! - PlayerWinnings (daily): temporary, TTL ≈ 26h so next-day window
+//!   starts clean without a sweep loop.
+use soroban_sdk::{Address, Env, Map, Vec};
 
 use crate::types::{DataKey, PlayerStats};
 
-// -- TTL policy -------------------------------------------------------------
-
-/// Bump window for instance/persistent entries (approx 30 days of ledgers
-/// at 5s per ledger = 518_400). Callers bump back up to `BUMP_HIGH` whenever
-/// they touch an entry, and the contract only errors if the current TTL has
-/// already dropped below `BUMP_LOW`.
-const BUMP_LOW: u32 = 100_000;   // ~5.7 days
-const BUMP_HIGH: u32 = 518_400;  // ~30 days
-
-/// Temporary storage window for daily winnings. Just above 24h so the
-/// window resets on its own without a sweep loop.
-const DAILY_TTL_LOW: u32 = 17_280;   // 24h at 5s ledgers
-const DAILY_TTL_HIGH: u32 = 19_008;  // ~26.4h — a bit of slack
+const BUMP_LOW: u32 = 100_000;
+const BUMP_HIGH: u32 = 518_400;
+const DAILY_TTL_LOW: u32 = 17_280;
+const DAILY_TTL_HIGH: u32 = 19_008;
 
 // -- Admin ------------------------------------------------------------------
 
 pub fn set_admin(env: &Env, admin: &Address) {
     env.storage().instance().set(&DataKey::Admin, admin);
 }
-
 pub fn get_admin(env: &Env) -> Option<Address> {
     env.storage().instance().get(&DataKey::Admin)
 }
 
-// -- Token (SAC address for native XLM) -------------------------------------
+// -- Pool balance per asset -------------------------------------------------
 
-pub fn set_token(env: &Env, token: &Address) {
-    env.storage().instance().set(&DataKey::Token, token);
-}
-
-pub fn get_token(env: &Env) -> Option<Address> {
-    env.storage().instance().get(&DataKey::Token)
-}
-
-// -- Pool balance -----------------------------------------------------------
-
-pub fn get_pool_balance(env: &Env) -> i128 {
+pub fn get_pool_balance(env: &Env, token: &Address) -> i128 {
     env.storage()
         .instance()
-        .get(&DataKey::PoolBalance)
+        .get(&DataKey::PoolBalance(token.clone()))
         .unwrap_or(0)
 }
-
-pub fn set_pool_balance(env: &Env, amount: i128) {
-    env.storage().instance().set(&DataKey::PoolBalance, &amount);
-}
-
-// -- Reset timer ------------------------------------------------------------
-
-pub fn get_last_reset(env: &Env) -> u64 {
+pub fn set_pool_balance(env: &Env, token: &Address, amount: i128) {
     env.storage()
         .instance()
-        .get(&DataKey::LastResetTime)
+        .set(&DataKey::PoolBalance(token.clone()), &amount);
+}
+
+// -- Daily reset pointer per asset -----------------------------------------
+
+pub fn get_last_reset(env: &Env, token: &Address) -> u64 {
+    env.storage()
+        .instance()
+        .get(&DataKey::LastResetTime(token.clone()))
         .unwrap_or(0)
 }
-
-pub fn set_last_reset(env: &Env, ts: u64) {
-    env.storage().instance().set(&DataKey::LastResetTime, &ts);
+pub fn set_last_reset(env: &Env, token: &Address, ts: u64) {
+    env.storage()
+        .instance()
+        .set(&DataKey::LastResetTime(token.clone()), &ts);
 }
 
-// -- Player daily winnings (temporary, 24h TTL) -----------------------------
+// -- Per-asset / per-player daily winnings (temporary) ---------------------
 
-pub fn get_player_winnings(env: &Env, player: &Address) -> i128 {
-    let key = DataKey::PlayerWinnings(player.clone());
+pub fn get_player_winnings(env: &Env, token: &Address, player: &Address) -> i128 {
+    let key = DataKey::PlayerWinnings(token.clone(), player.clone());
     env.storage().temporary().get(&key).unwrap_or(0)
 }
-
-pub fn set_player_winnings(env: &Env, player: &Address, amount: i128) {
-    let key = DataKey::PlayerWinnings(player.clone());
+pub fn set_player_winnings(env: &Env, token: &Address, player: &Address, amount: i128) {
+    let key = DataKey::PlayerWinnings(token.clone(), player.clone());
     env.storage().temporary().set(&key, &amount);
     env.storage()
         .temporary()
         .extend_ttl(&key, DAILY_TTL_LOW, DAILY_TTL_HIGH);
 }
 
-// -- Player stats (persistent) ---------------------------------------------
+// -- Unified player stats (persistent) --------------------------------------
 
 pub fn get_player_stats(env: &Env, player: &Address) -> PlayerStats {
     let key = DataKey::PlayerStats(player.clone());
@@ -94,7 +80,6 @@ pub fn get_player_stats(env: &Env, player: &Address) -> PlayerStats {
         .get(&key)
         .unwrap_or_else(PlayerStats::empty)
 }
-
 pub fn set_player_stats(env: &Env, player: &Address, stats: &PlayerStats) {
     let key = DataKey::PlayerStats(player.clone());
     env.storage().persistent().set(&key, stats);
@@ -103,17 +88,44 @@ pub fn set_player_stats(env: &Env, player: &Address, stats: &PlayerStats) {
         .extend_ttl(&key, BUMP_LOW, BUMP_HIGH);
 }
 
-// -- Leaderboard (instance, bounded to top N) ------------------------------
+// -- Per-asset earnings per player (persistent) ----------------------------
 
-pub fn get_leaderboard_addrs(env: &Env) -> Vec<Address> {
+pub fn get_player_earnings_map(env: &Env, player: &Address) -> Map<Address, i128> {
+    let key = DataKey::PlayerEarnings(player.clone());
     env.storage()
-        .instance()
-        .get(&DataKey::Leaderboard)
-        .unwrap_or_else(|| Vec::new(env))
+        .persistent()
+        .get(&key)
+        .unwrap_or_else(|| Map::new(env))
+}
+pub fn set_player_earnings_map(env: &Env, player: &Address, m: &Map<Address, i128>) {
+    let key = DataKey::PlayerEarnings(player.clone());
+    env.storage().persistent().set(&key, m);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, BUMP_LOW, BUMP_HIGH);
+}
+pub fn add_player_earnings(env: &Env, player: &Address, token: &Address, amount: i128) {
+    let mut m = get_player_earnings_map(env, player);
+    let prev = m.get(token.clone()).unwrap_or(0);
+    m.set(token.clone(), prev.saturating_add(amount));
+    set_player_earnings_map(env, player, &m);
+}
+pub fn get_player_earned(env: &Env, player: &Address, token: &Address) -> i128 {
+    get_player_earnings_map(env, player).get(token.clone()).unwrap_or(0)
 }
 
-pub fn set_leaderboard_addrs(env: &Env, addrs: &Vec<Address>) {
-    env.storage().instance().set(&DataKey::Leaderboard, addrs);
+// -- Per-asset leaderboard (instance) --------------------------------------
+
+pub fn get_leaderboard_addrs(env: &Env, token: &Address) -> Vec<Address> {
+    env.storage()
+        .instance()
+        .get(&DataKey::Leaderboard(token.clone()))
+        .unwrap_or_else(|| Vec::new(env))
+}
+pub fn set_leaderboard_addrs(env: &Env, token: &Address, addrs: &Vec<Address>) {
+    env.storage()
+        .instance()
+        .set(&DataKey::Leaderboard(token.clone()), addrs);
 }
 
 // -- Instance TTL bump ------------------------------------------------------
