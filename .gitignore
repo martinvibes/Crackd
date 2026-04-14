@@ -27,5 +27,7 @@ npm-debug.log*
 
 # --- Stellar / deploy artifacts kept in repo ---
 !contracts/deployments/testnet.json
+/contracts/deployments/testnet.json
+contracts/deployments/testnet.json
 
 /docs

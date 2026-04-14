@@ -1,0 +1,25 @@
+{
+  "network": "testnet",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "rpc_url": "https://soroban-testnet.stellar.org",
+  "admin": "GBYU6P367RQIUR63NXCNLWE2H5DIVC7BTJL6HEH7SAKSCTUIU7MH5KRY",
+  "native_xlm_sac": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  "contracts": {
+    "crackd_vault": {
+      "id": "CBPKHIAMSRRSTNALDO3JONC727QBR5SETSHVK4P37GXTNXF5OIGNUCTQ",
+      "wasm_hash": "bb86e84aec435ed1e0531deffe38e38440531bf99e3262bb135b217fbd5e2da5",
+      "deploy_tx": "f33fc3330403273aa750b7ea32d588283c7da0735af0f7b41048fe833849b757",
+      "init_tx": "535980b48f113cc5a3cb729bf063012f11524e4e4ac845723bb05e628e2383df",
+      "explorer": "https://stellar.expert/explorer/testnet/contract/CBPKHIAMSRRSTNALDO3JONC727QBR5SETSHVK4P37GXTNXF5OIGNUCTQ",
+      "deployed_at": "2026-04-14"
+    },
+    "crackd_duel": {
+      "id": "CDRDJFZAPL3SJVSSWDAGEAHK4IOWCACM2XMVYQIFKFXMHCARMVAEEY3A",
+      "wasm_hash": "a08f1b9eea93475b5deff705b3a68d2b9b83ea42babdd92e71ecbd1c626c6f7d",
+      "deploy_tx": "15dd4578698da8d4b65944008687f318fc957a7f7d3e925a392cab762722e7e0",
+      "init_tx": "22724c31bd2e338003133cf7dd5026e72db365334cf721f9c9f7c699313d2fa4",
+      "explorer": "https://stellar.expert/explorer/testnet/contract/CDRDJFZAPL3SJVSSWDAGEAHK4IOWCACM2XMVYQIFKFXMHCARMVAEEY3A",
+      "deployed_at": "2026-04-14"
+    }
+  }
+}
