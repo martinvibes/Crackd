@@ -334,3 +334,264 @@ fn same_player_can_run_multiple_games() {
     let hist = h.duel.get_player_games(&p1);
     assert_eq!(hist.len(), 2);
 }
+
+// =====================================================================
+// Edge cases
+// =====================================================================
+
+// ------------------------------ uninitialized paths ------------------------------
+
+fn setup_uninit<'a>() -> (Env, CrackdDuelClient<'a>, Address) {
+    let env = Env::default();
+    env.mock_all_auths();
+    let sac_admin = Address::generate(&env);
+    let sac = env.register_stellar_asset_contract_v2(sac_admin);
+    let token_id = sac.address();
+    let duel_id = env.register(CrackdDuel, ());
+    let duel = CrackdDuelClient::new(&env, &duel_id);
+    (env, duel, token_id)
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NotInitialized
+fn create_before_init_panics() {
+    let (env, duel, _) = setup_uninit();
+    let p = Address::generate(&env);
+    duel.create_game(&p, &(5 * STROOPS));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NotInitialized
+fn join_before_init_panics() {
+    let (env, duel, _) = setup_uninit();
+    let p = Address::generate(&env);
+    let fake = BytesN::from_array(&env, &[1u8; 32]);
+    duel.join_game(&p, &fake);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NotInitialized
+fn cancel_before_init_panics() {
+    let (env, duel, _) = setup_uninit();
+    let p = Address::generate(&env);
+    let fake = BytesN::from_array(&env, &[1u8; 32]);
+    duel.cancel_game(&p, &fake);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NotInitialized
+fn expire_before_init_panics() {
+    let (env, duel, _) = setup_uninit();
+    let fake = BytesN::from_array(&env, &[1u8; 32]);
+    duel.expire_game(&fake);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NotInitialized
+fn get_admin_before_init_panics() {
+    let (_, duel, _) = setup_uninit();
+    duel.get_admin();
+}
+
+// ------------------------------ state-machine enforcement ------------------------------
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")] // GameNotWaiting (cancel after join)
+fn cancel_after_join_panics() {
+    let h = setup();
+    let p1 = player(&h, 10 * STROOPS);
+    let p2 = player(&h, 10 * STROOPS);
+    let id = h.duel.create_game(&p1, &(3 * STROOPS));
+    h.duel.join_game(&p2, &id);
+    h.duel.cancel_game(&p1, &id); // status Active now
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")] // GameNotWaiting (expire on active)
+fn expire_active_game_panics() {
+    let h = setup();
+    let p1 = player(&h, 10 * STROOPS);
+    let p2 = player(&h, 10 * STROOPS);
+    let id = h.duel.create_game(&p1, &(3 * STROOPS));
+    h.duel.join_game(&p2, &id);
+    jump_ledger(&h.env, GAME_TIMEOUT_SECS + 1, 1000);
+    h.duel.expire_game(&id);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #6)")] // GameNotActive (declare winner twice)
+fn declare_winner_twice_panics() {
+    let h = setup();
+    let p1 = player(&h, 10 * STROOPS);
+    let p2 = player(&h, 10 * STROOPS);
+    let id = h.duel.create_game(&p1, &(3 * STROOPS));
+    h.duel.join_game(&p2, &id);
+    h.duel.declare_winner(&id, &p1);
+    h.duel.declare_winner(&id, &p1); // status Completed now
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #6)")] // GameNotActive
+fn declare_draw_after_winner_panics() {
+    let h = setup();
+    let p1 = player(&h, 10 * STROOPS);
+    let p2 = player(&h, 10 * STROOPS);
+    let id = h.duel.create_game(&p1, &(3 * STROOPS));
+    h.duel.join_game(&p2, &id);
+    h.duel.declare_winner(&id, &p1);
+    h.duel.declare_draw(&id);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")] // GameNotWaiting (cancel cancelled)
+fn cancel_cancelled_game_panics() {
+    let h = setup();
+    let p1 = player(&h, 10 * STROOPS);
+    let id = h.duel.create_game(&p1, &(3 * STROOPS));
+    h.duel.cancel_game(&p1, &id);
+    h.duel.cancel_game(&p1, &id); // Refunded, not Waiting
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #4)")] // GameNotFound
+fn get_nonexistent_game_panics() {
+    let h = setup();
+    let fake = BytesN::from_array(&h.env, &[9u8; 32]);
+    h.duel.get_game(&fake);
+}
+
+// ------------------------------ player-history edge cases ------------------------------
+
+#[test]
+fn player_with_no_games_returns_empty_history() {
+    let h = setup();
+    let p = Address::generate(&h.env);
+    let games = h.duel.get_player_games(&p);
+    assert_eq!(games.len(), 0);
+}
+
+#[test]
+fn expired_game_stays_in_history() {
+    let h = setup();
+    let p1 = player(&h, 10 * STROOPS);
+    let id = h.duel.create_game(&p1, &(3 * STROOPS));
+    jump_ledger(&h.env, GAME_TIMEOUT_SECS + 1, 1000);
+    h.duel.expire_game(&id);
+
+    let hist = h.duel.get_player_games(&p1);
+    assert_eq!(hist.len(), 1);
+    let g = h.duel.get_game(&id);
+    assert_eq!(g.status, GameStatus::Expired);
+}
+
+// ------------------------------ exact-stake boundary ------------------------------
+
+#[test]
+fn create_with_exactly_min_stake_ok() {
+    let h = setup();
+    let p = player(&h, 10 * STROOPS);
+    let id = h.duel.create_game(&p, &MIN_STAKE);
+    let g = h.duel.get_game(&id);
+    assert_eq!(g.stake_amount, MIN_STAKE);
+}
+
+// ------------------------------ fee rounding ------------------------------
+
+#[test]
+fn fee_rounds_down_on_odd_stakes() {
+    // stake = 1 XLM (10_000_000 stroops) → pot = 20_000_000, fee = 500_000.
+    let h = setup();
+    let p1 = player(&h, 10 * STROOPS);
+    let p2 = player(&h, 10 * STROOPS);
+    let id = h.duel.create_game(&p1, &MIN_STAKE);
+    h.duel.join_game(&p2, &id);
+    h.duel.declare_winner(&id, &p2);
+
+    let fee = h.duel.get_treasury_balance();
+    let expected = 2 * MIN_STAKE * 250 / 10_000;
+    assert_eq!(fee, expected);
+    // Winner received pot - fee
+    let payout = 2 * MIN_STAKE - expected;
+    assert_eq!(h.token.balance(&p2), (10 * STROOPS) - MIN_STAKE + payout);
+}
+
+// ------------------------------ treasury partial withdraws ------------------------------
+
+#[test]
+fn treasury_partial_withdraws_accumulate_and_reduce() {
+    let h = setup();
+    let p1 = player(&h, 10 * STROOPS);
+    let p2 = player(&h, 10 * STROOPS);
+    let id = h.duel.create_game(&p1, &(5 * STROOPS));
+    h.duel.join_game(&p2, &id);
+    h.duel.declare_winner(&id, &p1);
+
+    let start = h.duel.get_treasury_balance();
+    assert!(start > 0);
+
+    let sink = Address::generate(&h.env);
+    let half = start / 2;
+    h.duel.withdraw_treasury(&half, &sink);
+    assert_eq!(h.duel.get_treasury_balance(), start - half);
+    assert_eq!(h.token.balance(&sink), half);
+
+    // Second partial withdraw the remainder
+    h.duel.withdraw_treasury(&(start - half), &sink);
+    assert_eq!(h.duel.get_treasury_balance(), 0);
+    assert_eq!(h.token.balance(&sink), start);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #12)")] // InvalidAmount
+fn withdraw_zero_treasury_panics() {
+    let h = setup();
+    let sink = Address::generate(&h.env);
+    h.duel.withdraw_treasury(&0, &sink);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #12)")] // InvalidAmount
+fn withdraw_negative_treasury_panics() {
+    let h = setup();
+    let sink = Address::generate(&h.env);
+    h.duel.withdraw_treasury(&-5, &sink);
+}
+
+// ------------------------------ multiple concurrent games ------------------------------
+
+#[test]
+fn two_games_settle_independently() {
+    let h = setup();
+    let p1 = player(&h, 20 * STROOPS);
+    let p2 = player(&h, 20 * STROOPS);
+    let p3 = player(&h, 20 * STROOPS);
+
+    let a = h.duel.create_game(&p1, &(5 * STROOPS));
+    jump_ledger(&h.env, 1, 1);
+    let b = h.duel.create_game(&p2, &(5 * STROOPS));
+    h.duel.join_game(&p3, &a);
+    h.duel.join_game(&p1, &b);
+
+    h.duel.declare_winner(&a, &p3);
+    h.duel.declare_draw(&b);
+
+    let ga = h.duel.get_game(&a);
+    let gb = h.duel.get_game(&b);
+    assert_eq!(ga.status, GameStatus::Completed);
+    assert_eq!(gb.status, GameStatus::Refunded);
+    assert_eq!(ga.winner.unwrap(), p3);
+    assert_eq!(gb.winner, None);
+}
+
+// ------------------------------ waiting game visible in history ------------------------------
+
+#[test]
+fn waiting_game_recorded_immediately_for_player_one() {
+    let h = setup();
+    let p1 = player(&h, 10 * STROOPS);
+    let id = h.duel.create_game(&p1, &(3 * STROOPS));
+    let hist = h.duel.get_player_games(&p1);
+    assert_eq!(hist.len(), 1);
+    assert_eq!(hist.get(0).unwrap(), id);
+    // Player two history empty until join
+}
