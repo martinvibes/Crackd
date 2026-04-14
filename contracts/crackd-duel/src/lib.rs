@@ -1,18 +1,11 @@
 #![no_std]
-//! CrackdDuel — PvP escrow for 1v1 staked matches.
+//! CrackdDuel — multi-asset PvP escrow for 1v1 staked matches.
 //!
-//! Player flow:
-//! 1. Player one calls `create_game(stake)` → stake transfers in, status = Waiting.
-//! 2. Player two calls `join_game(game_id)` with matching stake → status = Active.
-//! 3. Admin calls `declare_winner(game_id, winner)` OR `declare_draw(game_id)`
-//!    when the off-chain game resolves → payout / refund transferred.
+//! Each duel carries its own asset, picked at `create_game` time. Player
+//! two must match the asset on join (enforced by reading it from the
+//! stored GameSession — not a parameter, so mismatches are impossible).
 //!
-//! Safety rails:
-//! - Player two cannot be player one (self-match guard).
-//! - Stake on join must exactly match stake at create (no scamming).
-//! - 1-hour timeout: anyone can call `expire_game` after which player one
-//!   gets refunded. Prevents capital lock-up.
-//! - Only admin can declare winner — winner verification happens off-chain.
+//! Same state machine as before: Waiting → Active → Completed/Refunded/Expired.
 
 mod errors;
 mod events;
@@ -29,15 +22,10 @@ use soroban_sdk::{
 use errors::DuelError;
 use types::{GameSession, GameStatus};
 
-/// 1 XLM = 10_000_000 stroops. Floor for a duel stake so dust doesn't clog
-/// storage or cause fee > prize outcomes.
+/// 1 XLM / 1 USDC (both 7-decimal) minimum stake.
 pub const MIN_STAKE: i128 = 10_000_000;
-
-/// 2.5% protocol fee (basis points out of 10_000).
 pub const PROTOCOL_FEE_BPS: i128 = 250;
 const BPS_DENOM: i128 = 10_000;
-
-/// 1-hour timeout before a Waiting game can be expired by anyone.
 pub const GAME_TIMEOUT_SECS: u64 = 3600;
 
 #[contract]
@@ -47,29 +35,31 @@ pub struct CrackdDuel;
 impl CrackdDuel {
     // ---------- Admin lifecycle ----------
 
-    pub fn initialize(env: Env, admin: Address, token: Address) {
+    pub fn initialize(env: Env, admin: Address) {
         if storage::get_admin(&env).is_some() {
             panic_with_error!(&env, DuelError::AlreadyInitialized);
         }
         admin.require_auth();
         storage::set_admin(&env, &admin);
-        storage::set_token(&env, &token);
-        storage::set_treasury(&env, 0);
         storage::bump_instance(&env);
     }
 
     // ---------- Player actions ----------
 
-    /// Player one creates a game and locks their stake.
-    /// Returns the unique game id (share with opponent).
-    pub fn create_game(env: Env, player_one: Address, stake: i128) -> BytesN<32> {
+    /// Player one creates a game with a chosen asset + stake. Returns
+    /// the unique game id (share with opponent).
+    pub fn create_game(
+        env: Env,
+        player_one: Address,
+        token: Address,
+        stake: i128,
+    ) -> BytesN<32> {
         require_initialized(&env);
         if stake < MIN_STAKE {
             panic_with_error!(&env, DuelError::BelowMinimumStake);
         }
         player_one.require_auth();
 
-        let token = require_token(&env);
         token::Client::new(&env, &token).transfer(
             &player_one,
             &env.current_contract_address(),
@@ -81,6 +71,7 @@ impl CrackdDuel {
             game_id: game_id.clone(),
             player_one: player_one.clone(),
             player_two: None,
+            token: token.clone(),
             stake_amount: stake,
             status: GameStatus::Waiting,
             created_at: env.ledger().timestamp(),
@@ -91,18 +82,18 @@ impl CrackdDuel {
         storage::append_player_game(&env, &player_one, &game_id);
         storage::bump_instance(&env);
 
-        events::created(&env, &game_id, &player_one, stake);
+        events::created(&env, &game_id, &player_one, &token, stake);
         game_id
     }
 
-    /// Player two joins the game by matching the stake.
+    /// Player two joins by matching the stored stake. Asset is fixed
+    /// by create_game — no chance of mismatch.
     pub fn join_game(env: Env, player_two: Address, game_id: BytesN<32>) {
         require_initialized(&env);
         player_two.require_auth();
 
         let mut game = storage::get_game(&env, &game_id)
             .unwrap_or_else(|| panic_with_error!(&env, DuelError::GameNotFound));
-
         if game.status != GameStatus::Waiting {
             panic_with_error!(&env, DuelError::GameNotWaiting);
         }
@@ -113,8 +104,7 @@ impl CrackdDuel {
             panic_with_error!(&env, DuelError::GameExpired);
         }
 
-        let token = require_token(&env);
-        token::Client::new(&env, &token).transfer(
+        token::Client::new(&env, &game.token).transfer(
             &player_two,
             &env.current_contract_address(),
             &game.stake_amount,
@@ -129,30 +119,25 @@ impl CrackdDuel {
         events::joined(&env, &game_id, &player_two);
     }
 
-    /// Player one (or admin) cancels a Waiting game and gets refunded.
     pub fn cancel_game(env: Env, caller: Address, game_id: BytesN<32>) {
         require_initialized(&env);
         caller.require_auth();
 
         let mut game = storage::get_game(&env, &game_id)
             .unwrap_or_else(|| panic_with_error!(&env, DuelError::GameNotFound));
-
         if game.status != GameStatus::Waiting {
             panic_with_error!(&env, DuelError::GameNotWaiting);
         }
-
         let admin = storage::get_admin(&env).unwrap();
         if caller != game.player_one && caller != admin {
             panic_with_error!(&env, DuelError::Unauthorized);
         }
 
-        let token = require_token(&env);
-        token::Client::new(&env, &token).transfer(
+        token::Client::new(&env, &game.token).transfer(
             &env.current_contract_address(),
             &game.player_one,
             &game.stake_amount,
         );
-
         game.status = GameStatus::Refunded;
         storage::set_game(&env, &game_id, &game);
         storage::bump_instance(&env);
@@ -160,8 +145,6 @@ impl CrackdDuel {
         events::cancelled(&env, &game_id);
     }
 
-    /// Anyone can call this after the timeout; refunds player one.
-    /// Prevents capital lock-up when player two never shows up.
     pub fn expire_game(env: Env, game_id: BytesN<32>) {
         require_initialized(&env);
 
@@ -174,13 +157,11 @@ impl CrackdDuel {
             panic_with_error!(&env, DuelError::NotTimedOutYet);
         }
 
-        let token = require_token(&env);
-        token::Client::new(&env, &token).transfer(
+        token::Client::new(&env, &game.token).transfer(
             &env.current_contract_address(),
             &game.player_one,
             &game.stake_amount,
         );
-
         game.status = GameStatus::Expired;
         storage::set_game(&env, &game_id, &game);
         storage::bump_instance(&env);
@@ -190,13 +171,11 @@ impl CrackdDuel {
 
     // ---------- Admin resolution ----------
 
-    /// Admin declares the winner. Fee retained by treasury, rest paid out.
     pub fn declare_winner(env: Env, game_id: BytesN<32>, winner: Address) {
         require_admin(&env);
 
         let mut game = storage::get_game(&env, &game_id)
             .unwrap_or_else(|| panic_with_error!(&env, DuelError::GameNotFound));
-
         if game.status != GameStatus::Active {
             panic_with_error!(&env, DuelError::GameNotActive);
         }
@@ -209,26 +188,24 @@ impl CrackdDuel {
         let fee: i128 = pot.saturating_mul(PROTOCOL_FEE_BPS) / BPS_DENOM;
         let payout: i128 = pot - fee;
 
-        let token = require_token(&env);
-        token::Client::new(&env, &token).transfer(
+        token::Client::new(&env, &game.token).transfer(
             &env.current_contract_address(),
             &winner,
             &payout,
         );
+        let new_treasury = storage::get_treasury(&env, &game.token).saturating_add(fee);
+        storage::set_treasury(&env, &game.token, new_treasury);
 
-        let new_treasury = storage::get_treasury(&env).saturating_add(fee);
-        storage::set_treasury(&env, new_treasury);
-
+        let token_for_event = game.token.clone();
         game.status = GameStatus::Completed;
         game.winner = Some(winner.clone());
         game.payout = Some(payout);
         storage::set_game(&env, &game_id, &game);
         storage::bump_instance(&env);
 
-        events::winner(&env, &game_id, &winner, payout, fee);
+        events::winner(&env, &game_id, &token_for_event, &winner, payout, fee);
     }
 
-    /// Admin declares a draw. Both stakes refunded in full (no fee).
     pub fn declare_draw(env: Env, game_id: BytesN<32>) {
         require_admin(&env);
 
@@ -239,14 +216,13 @@ impl CrackdDuel {
         }
         let p2 = game.player_two.clone().unwrap();
 
-        let token_addr = require_token(&env);
-        let token_client = token::Client::new(&env, &token_addr);
-        token_client.transfer(
+        let client = token::Client::new(&env, &game.token);
+        client.transfer(
             &env.current_contract_address(),
             &game.player_one,
             &game.stake_amount,
         );
-        token_client.transfer(&env.current_contract_address(), &p2, &game.stake_amount);
+        client.transfer(&env.current_contract_address(), &p2, &game.stake_amount);
 
         game.status = GameStatus::Refunded;
         storage::set_game(&env, &game_id, &game);
@@ -255,24 +231,21 @@ impl CrackdDuel {
         events::draw(&env, &game_id);
     }
 
-    /// Admin withdraws accumulated protocol fees.
-    pub fn withdraw_treasury(env: Env, amount: i128, recipient: Address) {
+    pub fn withdraw_treasury(env: Env, token: Address, amount: i128, recipient: Address) {
         if amount <= 0 {
             panic_with_error!(&env, DuelError::InvalidAmount);
         }
         require_admin(&env);
-
-        let treasury = storage::get_treasury(&env);
+        let treasury = storage::get_treasury(&env, &token);
         if amount > treasury {
             panic_with_error!(&env, DuelError::InvalidAmount);
         }
-        let token = require_token(&env);
         token::Client::new(&env, &token).transfer(
             &env.current_contract_address(),
             &recipient,
             &amount,
         );
-        storage::set_treasury(&env, treasury - amount);
+        storage::set_treasury(&env, &token, treasury - amount);
         storage::bump_instance(&env);
     }
 
@@ -287,18 +260,13 @@ impl CrackdDuel {
         storage::get_player_games(&env, &player)
     }
 
-    pub fn get_treasury_balance(env: Env) -> i128 {
-        storage::get_treasury(&env)
+    pub fn get_treasury_balance(env: Env, token: Address) -> i128 {
+        storage::get_treasury(&env, &token)
     }
 
     pub fn get_admin(env: Env) -> Address {
         require_initialized(&env);
         storage::get_admin(&env).unwrap()
-    }
-
-    pub fn get_token(env: Env) -> Address {
-        require_initialized(&env);
-        storage::get_token(&env).unwrap()
     }
 }
 
@@ -319,16 +287,6 @@ fn require_admin(env: &Env) -> Address {
     admin
 }
 
-fn require_token(env: &Env) -> Address {
-    match storage::get_token(env) {
-        Some(t) => t,
-        None => panic_with_error!(env, DuelError::NotInitialized),
-    }
-}
-
-/// Deterministic unique game id: sha256(p1_xdr || timestamp || sequence).
-/// Low collision probability — same player, same ledger, same sequence is
-/// impossible (a given source account gets one tx per sequence).
 fn generate_game_id(env: &Env, player_one: &Address) -> BytesN<32> {
     let mut data: Bytes = player_one.clone().to_xdr(env);
     data.extend_from_array(&env.ledger().timestamp().to_be_bytes());

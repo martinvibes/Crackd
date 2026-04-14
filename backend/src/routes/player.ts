@@ -8,22 +8,43 @@ const addressSchema = z.string().startsWith("G").length(56);
 export function playerRouter(services: Services): Router {
   const r = Router();
 
+  /**
+   * GET /api/player/:walletAddress
+   *
+   * Returns unified gameplay stats + per-asset earnings + per-asset
+   * daily allowance remaining.
+   */
   r.get("/player/:walletAddress", async (req, res, next) => {
     try {
       const wallet = addressSchema.parse(req.params.walletAddress);
-      const [stats, dailyRemaining] = await Promise.all([
+
+      const assets = services.assets.list();
+      const [stats, earningsMap, ...dailies] = await Promise.all([
         services.stellar.getPlayerStats(wallet),
-        services.stellar.getDailyRemaining(wallet),
+        services.stellar.getPlayerEarnings(wallet),
+        ...assets.map((a) => services.stellar.getDailyRemaining(wallet, a.symbol)),
       ]);
+
+      const perAsset = assets.map((a, i) => {
+        const earnedStroops = earningsMap[a.sac] ?? 0n;
+        const daily = dailies[i] ?? 0n;
+        return {
+          asset: a.symbol,
+          displayName: a.displayName,
+          totalEarned: stroopsToXlm(earnedStroops as bigint),
+          totalEarnedStroops: (earnedStroops as bigint).toString(),
+          dailyRemaining: stroopsToXlm(daily as bigint),
+        };
+      });
+
       res.json({
         wallet,
         wins: stats.wins,
         losses: stats.losses,
         gamesPlayed: stats.gamesPlayed,
-        totalEarnedXlm: stroopsToXlm(stats.totalEarned),
         currentStreak: stats.currentStreak,
         bestStreak: stats.bestStreak,
-        dailyRemainingXlm: stroopsToXlm(dailyRemaining),
+        assets: perAsset,
       });
     } catch (err) {
       if (err instanceof z.ZodError) {

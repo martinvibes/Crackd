@@ -3,23 +3,42 @@
   "network_passphrase": "Test SDF Network ; September 2015",
   "rpc_url": "https://soroban-testnet.stellar.org",
   "admin": "GBYU6P367RQIUR63NXCNLWE2H5DIVC7BTJL6HEH7SAKSCTUIU7MH5KRY",
-  "native_xlm_sac": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  "assets": {
+    "XLM": {
+      "symbol": "XLM",
+      "decimals": 7,
+      "sac": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "issuer": null,
+      "is_native": true,
+      "display_name": "Stellar Lumens"
+    },
+    "USDC": {
+      "symbol": "USDC",
+      "decimals": 7,
+      "sac": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+      "issuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      "is_native": false,
+      "display_name": "USD Coin (Circle testnet)"
+    }
+  },
   "contracts": {
     "crackd_vault": {
-      "id": "CBPKHIAMSRRSTNALDO3JONC727QBR5SETSHVK4P37GXTNXF5OIGNUCTQ",
-      "wasm_hash": "bb86e84aec435ed1e0531deffe38e38440531bf99e3262bb135b217fbd5e2da5",
-      "deploy_tx": "f33fc3330403273aa750b7ea32d588283c7da0735af0f7b41048fe833849b757",
-      "init_tx": "535980b48f113cc5a3cb729bf063012f11524e4e4ac845723bb05e628e2383df",
-      "explorer": "https://stellar.expert/explorer/testnet/contract/CBPKHIAMSRRSTNALDO3JONC727QBR5SETSHVK4P37GXTNXF5OIGNUCTQ",
-      "deployed_at": "2026-04-14"
+      "id": "CAOBL4NDX2MELQHF7HOVDPG7Z5JAGIJCMYSBZRXJ42OMRKIZNLEYJU3E",
+      "explorer": "https://stellar.expert/explorer/testnet/contract/CAOBL4NDX2MELQHF7HOVDPG7Z5JAGIJCMYSBZRXJ42OMRKIZNLEYJU3E",
+      "init_tx": "fe472390705e22153bbd046e7e3f933ff394b32c8bffc5ebb4d6e995af77de9d",
+      "deployed_at": "2026-04-14",
+      "multi_asset": true
     },
     "crackd_duel": {
-      "id": "CDRDJFZAPL3SJVSSWDAGEAHK4IOWCACM2XMVYQIFKFXMHCARMVAEEY3A",
-      "wasm_hash": "a08f1b9eea93475b5deff705b3a68d2b9b83ea42babdd92e71ecbd1c626c6f7d",
-      "deploy_tx": "15dd4578698da8d4b65944008687f318fc957a7f7d3e925a392cab762722e7e0",
-      "init_tx": "22724c31bd2e338003133cf7dd5026e72db365334cf721f9c9f7c699313d2fa4",
-      "explorer": "https://stellar.expert/explorer/testnet/contract/CDRDJFZAPL3SJVSSWDAGEAHK4IOWCACM2XMVYQIFKFXMHCARMVAEEY3A",
-      "deployed_at": "2026-04-14"
+      "id": "CBDHNQFBASF3JZJBVA67SBDRWNCL7HPA67S5JIZ44MKLYO25H5MFFZNR",
+      "explorer": "https://stellar.expert/explorer/testnet/contract/CBDHNQFBASF3JZJBVA67SBDRWNCL7HPA67S5JIZ44MKLYO25H5MFFZNR",
+      "init_tx": "420ef9748051e4fdebed243ec72010a0595d17b5fb1ece6b83bb924853c0d1e5",
+      "deployed_at": "2026-04-14",
+      "multi_asset": true
     }
+  },
+  "superseded": {
+    "crackd_vault_v1_xlm_only": "CBPKHIAMSRRSTNALDO3JONC727QBR5SETSHVK4P37GXTNXF5OIGNUCTQ",
+    "crackd_duel_v1_xlm_only": "CDRDJFZAPL3SJVSSWDAGEAHK4IOWCACM2XMVYQIFKFXMHCARMVAEEY3A"
   }
 }

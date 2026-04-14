@@ -43,6 +43,8 @@ const schema = z.object({
   ADMIN_PUBLIC_KEY: z.string().startsWith("G").length(56),
   ADMIN_SECRET_KEY: z.string().startsWith("S").length(56),
   NATIVE_XLM_SAC: z.string().startsWith("C").length(56),
+  USDC_SAC: z.string().startsWith("C").length(56),
+  SUPPORTED_ASSETS: z.string().default("XLM,USDC"),
   CRACKD_VAULT_ID: z.string().startsWith("C").length(56),
   CRACKD_DUEL_ID: z.string().startsWith("C").length(56),
 
