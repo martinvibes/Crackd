@@ -1,0 +1,19 @@
+[package]
+name = "crackd-duel"
+description = "Crackd PvP duel escrow — trustless 1v1 XLM staking with automatic winner payout."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

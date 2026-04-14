@@ -1,0 +1,31 @@
+[workspace]
+resolver = "2"
+members = [
+    "crackd-vault",
+    "crackd-duel",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.84"
+authors = ["Martin Machiebe <martinvibes>"]
+license = "MIT"
+repository = "https://github.com/martinvibes/Crackd"
+
+[workspace.dependencies]
+soroban-sdk = "25.3.0"
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
+
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true
