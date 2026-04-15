@@ -56,8 +56,8 @@ export function BoardHeader({
         </div>
       </div>
 
-      {/* Player strip */}
-      <div className="mt-7 grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 md:gap-4">
+      {/* Player strip — two columns, no "VS" rail on mobile (too cramped) */}
+      <div className="mt-6 md:mt-7 grid grid-cols-2 gap-2 md:gap-4 relative">
         <PlayerTile
           label="You"
           address={walletAddress}
@@ -65,17 +65,13 @@ export function BoardHeader({
           active={yours}
           guessCount={view.yourGuesses.length}
         />
-
-        {/* vs divider */}
-        <div className="flex items-center">
-          <div className="flex flex-col items-center justify-center h-full px-1">
-            <span className="text-[10px] uppercase tracking-[0.25em] text-fg-muted">
-              vs
-            </span>
-            <div className="mt-1 h-10 w-px bg-ink-border" />
-          </div>
-        </div>
-
+        {/* VS badge — floats between tiles on md+ only */}
+        <span
+          className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-ink text-[10px] uppercase tracking-[0.25em] text-fg-muted border border-ink-border z-10"
+          aria-hidden
+        >
+          vs
+        </span>
         <PlayerTile
           label={view.opponent === "vault" ? "The Vault" : "Opponent"}
           address={view.opponent ?? "waiting"}

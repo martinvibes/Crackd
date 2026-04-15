@@ -103,7 +103,9 @@ export function Composer({
 
   return (
     <div className="panel-elevated p-3 md:p-4">
-      <div className="flex items-center gap-3">
+      {/* On narrow screens: tiles fill the row; submit button drops below.
+          On md+: tiles + button share one row. */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1 flex items-center gap-2">
           {[0, 1, 2, 3].map((i) => {
             const ch = value[i] ?? "";
@@ -122,7 +124,7 @@ export function Composer({
                 onPaste={(e) => handlePaste(i, e)}
                 onFocus={(e) => e.target.select()}
                 aria-label={`Digit ${i + 1}`}
-                className={`flex-1 aspect-[4/5] max-w-[64px] rounded-lg border text-center font-mono text-2xl md:text-3xl tabular-nums transition-colors focus:outline-none ${
+                className={`flex-1 aspect-[4/5] min-w-0 max-w-[64px] rounded-lg border text-center font-mono text-xl sm:text-2xl md:text-3xl tabular-nums transition-colors focus:outline-none ${
                   disabled
                     ? "bg-ink border-ink-border text-fg-dim cursor-not-allowed"
                     : ch
@@ -135,7 +137,7 @@ export function Composer({
         </div>
 
         <button
-          className="btn-primary shrink-0"
+          className="btn-primary shrink-0 w-full sm:w-auto"
           disabled={disabled || value.length !== 4}
           onClick={onSubmit}
         >
@@ -143,9 +145,11 @@ export function Composer({
         </button>
       </div>
 
-      <div className="flex items-center justify-between mt-2 text-[10px] uppercase tracking-[0.25em]">
-        <span className="text-fg-muted">{placeholder}</span>
-        <span className={error ? "text-danger" : "text-fg-muted"}>
+      <div className="flex items-center justify-between mt-2 text-[10px] uppercase tracking-[0.22em] gap-3">
+        <span className="text-fg-muted truncate">{placeholder}</span>
+        <span
+          className={`whitespace-nowrap ${error ? "text-danger" : "text-fg-muted"}`}
+        >
           {error ?? "↵ to submit"}
         </span>
       </div>

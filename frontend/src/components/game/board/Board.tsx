@@ -116,11 +116,11 @@ export function Board({
 
 function EmptyState({ needsToSetCode }: { needsToSetCode: boolean }) {
   return (
-    <div className="panel px-6 py-10 text-center">
-      <div className="text-[10px] uppercase tracking-[0.3em] text-fg-muted">
+    <div className="panel px-4 md:px-6 py-6 md:py-10 text-center">
+      <div className="text-[10px] uppercase tracking-[0.28em] text-fg-muted">
         {needsToSetCode ? "Step 1" : "Make the first move"}
       </div>
-      <div className="mt-3 text-lg text-fg-secondary max-w-sm mx-auto leading-relaxed">
+      <div className="mt-3 text-sm md:text-base text-fg-secondary max-w-sm mx-auto leading-relaxed">
         {needsToSetCode
           ? "Lock in four digits below. No repeats. Opponent never sees it."
           : "Type four digits in the composer. Each guess gets four dots back — solid for right place, ring for wrong place."}
