@@ -3,6 +3,7 @@ import PlayLayout from "./components/PlayLayout";
 import Home from "./pages/Home";
 import Game from "./pages/Game";
 import Leaderboard from "./pages/Leaderboard";
+import Logos from "./pages/Logos";
 
 export default function App() {
   return (
@@ -10,6 +11,9 @@ export default function App() {
       <Routes>
         {/* Home owns its own chrome (no bottom nav — cleaner landing). */}
         <Route path="/" element={<Home />} />
+
+        {/* Temporary brand-review route. Delete once a logo is picked. */}
+        <Route path="/logos" element={<Logos />} />
 
         {/* Everything else gets the game-app chrome with floating bottom tab bar. */}
         <Route element={<PlayLayout />}>
