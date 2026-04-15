@@ -1,20 +1,27 @@
 /**
- * FinishedPanel — the celebration moment.
+ * FinishedPanel — the game-over moment.
  *
- * Layering, in stacking order:
- *   · Radiating magenta sparks burst from behind the headline (CSS).
- *   · Shine sweeps across "Crackd." one time on mount.
- *   · Headline pops in with a spring (scale + y).
- *   · Revealed digits flip in with a glow pulse when they land.
- *   · Guess counts tick up from 0.
+ * Three end-states with distinct copy + visual weight:
+ *   WIN   → "Crackd." Magenta headline, sparks, shine sweep, flipping
+ *           opponent's code as the trophy, stat strip with guess count +
+ *           multiplier bonus if staked.
+ *   LOSS  → "Locked out." Neutral headline. Shows which code the
+ *           opponent broke + how many tries it took them. Vs-AI gets a
+ *           Pidgin sting line for personality.
+ *   DRAW  → "Stalemate." Neutral, symmetric — both codes shown small.
  *
- * Everything uses brand magenta + neutrals — no extra colours.
+ * Only wins get magenta + sparks. Losses and draws stay restrained.
  */
 import { animate, motion, useMotionValue } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import type { S2CGameOver } from "../../lib/socket";
 
 const MAGENTA = "#FF00A8";
+/**
+ * Muted, saturated-but-not-alarming red for the loss state. A touch
+ * desaturated so it reads as defeat, not a system error.
+ */
+const LOSS_RED = "#FF5C6A";
 
 export function FinishedPanel({
   finished,
@@ -27,48 +34,103 @@ export function FinishedPanel({
 }) {
   const won = finished.winner === me;
   const draw = finished.isDraw;
-  const headline = draw ? "Draw." : won ? "Crackd." : "Unbreakable.";
-  const kicker = draw ? "Even match" : won ? "You won" : "The Vault holds";
+  const lost = !won && !draw;
+
+  // Winner lost to the Vault vs another human — changes the loss copy.
+  const lostToVault = lost && finished.winner === "vault";
+
+  const kicker = draw
+    ? "Neck and neck"
+    : won
+      ? "You cracked it"
+      : lostToVault
+        ? "The Vault cracked you"
+        : "Outplayed";
+  const headline = draw ? "Stalemate." : won ? "Crackd." : "Locked out.";
+
+  const yourGuesses = finished.final.playerOneGuesses.length;
+  const theirGuesses = finished.final.playerTwoGuesses.length;
 
   return (
     <div className="max-w-3xl mx-auto animate-fade-in relative py-6">
-      {/* Sparks — fixed backdrop, only rendered on a win */}
       {won && <Sparks />}
 
-      {/* Kicker */}
+      {/* Kicker + headline */}
       <div className="text-center relative">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="text-[11px] uppercase tracking-[0.3em] inline-flex items-center gap-2"
-          style={{ color: won ? MAGENTA : "rgba(237,230,240,0.5)" }}
+          className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em]"
+          style={{
+            color: won
+              ? MAGENTA
+              : lost
+                ? LOSS_RED
+                : "rgba(237,230,240,0.55)",
+          }}
         >
           <span
             className="h-1 w-1 rounded-full"
-            style={{ background: won ? MAGENTA : "rgba(237,230,240,0.4)" }}
+            style={{
+              background: won
+                ? MAGENTA
+                : lost
+                  ? LOSS_RED
+                  : "rgba(237,230,240,0.45)",
+            }}
           />
           {kicker}
         </motion.div>
 
-        {/* Headline with shine sweep */}
-        <Headline text={headline} won={won} />
+        <Headline text={headline} won={won} lost={lost} />
+
+        {/* Outcome sub-line — sentence-form so it's unambiguous */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.7, duration: 0.5 }}
+          className="mt-5 text-base md:text-lg text-fg-secondary max-w-md mx-auto"
+        >
+          {draw
+            ? "Both of you went the distance. Nobody got the code first."
+            : won
+              ? `You broke the code in ${yourGuesses} guess${yourGuesses === 1 ? "" : "es"}.`
+              : lostToVault
+                ? `The Vault broke your code in ${theirGuesses} guess${theirGuesses === 1 ? "" : "es"}. Omo, don't vex — try am again.`
+                : `Your opponent cracked your code in ${theirGuesses} guess${theirGuesses === 1 ? "" : "es"}.`}
+        </motion.div>
       </div>
 
-      {/* Revealed codes */}
-      <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <RevealedCode
-          label="Your code"
-          code={finished.final.playerOneCode}
-          guesses={finished.final.playerTwoGuesses.length}
-          pale
-        />
-        <RevealedCode
-          label="Opponent's code"
-          code={finished.final.playerTwoCode}
-          guesses={finished.final.playerOneGuesses.length}
-          cracked={won}
-        />
+      {/* Stats strip */}
+      <StatsStrip
+        won={won}
+        draw={draw}
+        yourGuesses={yourGuesses}
+        theirGuesses={theirGuesses}
+        maxGuesses={10}
+        payoutTxHash={finished.payoutTxHash}
+      />
+
+      {/* Revealed code (hero changes based on outcome) */}
+      <div className="mt-10">
+        {draw ? (
+          <DrawCards finished={finished} />
+        ) : won ? (
+          <HeroCode
+            label="Opponent's code"
+            subtext={`Cracked in ${yourGuesses} guess${yourGuesses === 1 ? "" : "es"}`}
+            code={finished.final.playerTwoCode}
+            tone="win"
+          />
+        ) : (
+          <HeroCode
+            label="Your code was exposed"
+            subtext={`Cracked in ${theirGuesses} guess${theirGuesses === 1 ? "" : "es"}`}
+            code={finished.final.playerOneCode}
+            tone="loss"
+          />
+        )}
       </div>
 
       {/* Settlement link */}
@@ -89,12 +151,14 @@ export function FinishedPanel({
       {/* Actions */}
       <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
         <button className="btn-primary" onClick={onPlayAgain}>
-          Play again
+          {won ? "Play again" : "Rematch"}
         </button>
         <button
           className="btn-ghost"
           onClick={() => {
-            const text = `I just ${won ? "crackd" : "played"} on Crackd — ${finished.final.playerOneCode} vs ${finished.final.playerTwoCode}. Who can crack me? 🔐`;
+            const text = won
+              ? `I just crackd The Vault in ${yourGuesses} guesses on Crackd. Come catch me 🔐`
+              : `I just went down to The Vault — but only ${theirGuesses} guesses in. Your turn to try 🔐`;
             navigator.clipboard.writeText(text);
           }}
         >
@@ -106,10 +170,362 @@ export function FinishedPanel({
 }
 
 // ============================================================
+// Stats strip — 3 tiles of context-relevant numbers
+// ============================================================
+
+function StatsStrip({
+  won,
+  draw,
+  yourGuesses,
+  theirGuesses,
+  maxGuesses,
+  payoutTxHash,
+}: {
+  won: boolean;
+  draw: boolean;
+  yourGuesses: number;
+  theirGuesses: number;
+  maxGuesses: number;
+  payoutTxHash?: string;
+}) {
+  const multiplier =
+    yourGuesses <= 3
+      ? "2.0×"
+      : yourGuesses <= 5
+        ? "1.5×"
+        : yourGuesses <= 7
+          ? "1.0×"
+          : "0.75×";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.95, duration: 0.6 }}
+      className="mt-10 grid grid-cols-3 gap-3 max-w-xl mx-auto"
+    >
+      <Stat
+        label="Your guesses"
+        value={<CountUp value={yourGuesses} delay={1.1} />}
+        suffix={`/ ${maxGuesses}`}
+        highlight={won}
+      />
+      <Stat
+        label={draw ? "Opponent" : won ? "Opponent" : "They cracked in"}
+        value={<CountUp value={theirGuesses} delay={1.2} />}
+        suffix={draw ? "guesses" : "guesses"}
+      />
+      <Stat
+        label={payoutTxHash ? "Multiplier" : "Result"}
+        value={won ? multiplier : draw ? "—" : "L"}
+        tone={won ? "win" : draw ? "neutral" : "loss"}
+      />
+    </motion.div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  suffix,
+  highlight,
+  tone = "neutral",
+}: {
+  label: string;
+  value: React.ReactNode;
+  suffix?: string;
+  /** Adds a magenta glow ring (used for the winning-guesses tile). */
+  highlight?: boolean;
+  tone?: "neutral" | "win" | "loss";
+}) {
+  const accent =
+    tone === "win" ? MAGENTA : tone === "loss" ? LOSS_RED : undefined;
+  return (
+    <div
+      className="panel p-4"
+      style={{
+        borderColor:
+          highlight
+            ? "rgba(255, 0, 168, 0.4)"
+            : tone === "loss"
+              ? "rgba(255, 92, 106, 0.28)"
+              : undefined,
+        boxShadow: highlight ? `0 0 32px -12px ${MAGENTA}` : undefined,
+      }}
+    >
+      <div
+        className="text-[10px] uppercase tracking-[0.24em]"
+        style={{ color: tone === "loss" ? "rgba(255, 92, 106, 0.8)" : "#5E5568" }}
+      >
+        {label}
+      </div>
+      <div className="mt-2 flex items-baseline gap-1.5">
+        <span
+          className="font-semibold tabular-nums"
+          style={{
+            fontSize: 32,
+            color: accent ?? "#EDE6F0",
+          }}
+        >
+          {value}
+        </span>
+        {suffix && (
+          <span className="text-xs text-fg-muted">{suffix}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Hero code — the single flip-in code card
+// ============================================================
+
+type HeroTone = "win" | "loss" | "neutral";
+
+function HeroCode({
+  label,
+  subtext,
+  code,
+  tone = "neutral",
+}: {
+  label: string;
+  subtext: string;
+  code: string;
+  tone?: HeroTone;
+}) {
+  const borderColor =
+    tone === "win"
+      ? "rgba(255, 0, 168, 0.35)"
+      : tone === "loss"
+        ? "rgba(255, 92, 106, 0.4)"
+        : undefined;
+  return (
+    <div className="relative">
+      {/* Fracture lines — only on loss. Faint red cracks radiating from
+          the card, visible OUTSIDE it as if the card itself has split
+          the page. */}
+      {tone === "loss" && <FractureLines />}
+
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.85, duration: 0.6 }}
+        className="panel-elevated p-8 md:p-10 relative overflow-hidden text-center"
+        style={{
+          borderColor,
+          // Breathing red aura for loss; static magenta glow for win.
+          animation: tone === "loss" ? "crackd-breath 3s ease-in-out infinite" : undefined,
+          boxShadow:
+            tone === "win"
+              ? `0 0 40px -10px ${MAGENTA}`
+              : undefined,
+        }}
+      >
+        {/* Loss-only: angled "EXPOSED" stamp in the corner */}
+        {tone === "loss" && (
+          <div
+            className="absolute -right-10 top-5 rotate-[24deg] select-none pointer-events-none"
+            aria-hidden
+          >
+            <span
+              className="inline-block px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.4em] border"
+              style={{
+                color: LOSS_RED,
+                borderColor: "rgba(255, 92, 106, 0.55)",
+                background: "rgba(255, 92, 106, 0.06)",
+                letterSpacing: "0.4em",
+              }}
+            >
+              Exposed
+            </span>
+          </div>
+        )}
+
+        <div className="text-[10px] uppercase tracking-[0.3em] text-fg-muted">
+          {label}
+        </div>
+
+        <div className="mt-6 flex items-center justify-center gap-3 relative">
+          {code.split("").map((c, i) => (
+            <DigitFlip key={i} char={c} delay={0.3 + i * 0.12} tone={tone} />
+          ))}
+          {/* Loss-only: a single red scan line sweeps once across the code. */}
+          {tone === "loss" && <ScanSweep />}
+        </div>
+
+        <div className="mt-6 text-sm text-fg-secondary">{subtext}</div>
+
+        <style>{`
+          @keyframes crackd-breath {
+            0%, 100% { box-shadow: 0 0 0px -4px rgba(255, 92, 106, 0.0); }
+            50%      { box-shadow: 0 0 44px -6px rgba(255, 92, 106, 0.45); }
+          }
+        `}</style>
+      </motion.div>
+    </div>
+  );
+}
+
+/**
+ * Faint diagonal fracture lines radiating OUT from roughly where the
+ * hero card sits. Rendered behind the card via an absolute-positioned
+ * SVG so the card appears to have "cracked" the page.
+ */
+function FractureLines() {
+  const cracks = [
+    { d: "M 50% 50% L -20 -30", delay: 1.1 },
+    { d: "M 50% 50% L 120% -10", delay: 1.2 },
+    { d: "M 50% 50% L -10 110%", delay: 1.3 },
+    { d: "M 50% 50% L 110% 120%", delay: 1.05 },
+    { d: "M 50% 50% L 50% -40", delay: 1.35 },
+    { d: "M 50% 50% L 110% 50%", delay: 1.25 },
+  ];
+  return (
+    <svg
+      aria-hidden
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      style={{ overflow: "visible" }}
+    >
+      {cracks.map((c, i) => (
+        <motion.path
+          key={i}
+          d={c.d}
+          stroke="rgba(255, 92, 106, 0.28)"
+          strokeWidth={1}
+          strokeLinecap="round"
+          fill="none"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ pathLength: 1, opacity: 1 }}
+          transition={{ delay: c.delay, duration: 0.7, ease: "easeOut" }}
+        />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * Single red scan line that sweeps horizontally across the digit row
+ * once on mount, then disappears — "your code is being scanned and
+ * exposed" signal.
+ */
+function ScanSweep() {
+  return (
+    <span
+      aria-hidden
+      className="absolute inset-0 overflow-hidden pointer-events-none"
+    >
+      <span
+        className="absolute inset-y-0 w-[3px]"
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent, rgba(255,92,106,0.85), transparent)",
+          boxShadow: "0 0 14px rgba(255,92,106,0.6)",
+          animation: "crackd-scan 1.4s ease-out 1.0s forwards",
+          left: "-10%",
+          opacity: 0,
+        }}
+      />
+      <style>{`
+        @keyframes crackd-scan {
+          0%   { left: -10%; opacity: 0; }
+          20%  { opacity: 1; }
+          80%  { opacity: 1; }
+          100% { left: 110%; opacity: 0; }
+        }
+      `}</style>
+    </span>
+  );
+}
+
+function DrawCards({ finished }: { finished: S2CGameOver }) {
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <HeroCode
+        label="Your code"
+        subtext={`${finished.final.playerTwoGuesses.length} guesses against it`}
+        code={finished.final.playerOneCode}
+      />
+      <HeroCode
+        label="Their code"
+        subtext={`${finished.final.playerOneGuesses.length} guesses against it`}
+        code={finished.final.playerTwoCode}
+      />
+    </div>
+  );
+}
+
+function DigitFlip({
+  char,
+  delay,
+  tone = "neutral",
+}: {
+  char: string;
+  delay: number;
+  tone?: HeroTone;
+}) {
+  const [landed, setLanded] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setLanded(true), delay * 1000 + 500);
+    return () => clearTimeout(t);
+  }, [delay]);
+
+  const styles =
+    tone === "win"
+      ? {
+          background: "rgba(255, 0, 168, 0.1)",
+          borderColor: "rgba(255, 0, 168, 0.4)",
+          color: MAGENTA,
+          glow: `0 0 28px -6px ${MAGENTA}`,
+        }
+      : tone === "loss"
+        ? {
+            background: "rgba(255, 92, 106, 0.08)",
+            borderColor: "rgba(255, 92, 106, 0.38)",
+            color: LOSS_RED,
+            glow: `0 0 28px -8px ${LOSS_RED}`,
+          }
+        : {
+            background: undefined,
+            borderColor: undefined,
+            color: undefined,
+            glow: "none",
+          };
+
+  return (
+    <motion.span
+      initial={{ rotateX: -90, opacity: 0 }}
+      animate={{ rotateX: 0, opacity: 1 }}
+      transition={{ delay, duration: 0.55, ease: [0.2, 0.8, 0.2, 1] }}
+      className={`w-16 h-20 md:w-20 md:h-24 grid place-items-center rounded-2xl border font-mono text-4xl md:text-5xl font-semibold ${
+        tone === "neutral" ? "bg-ink-elevated border-ink-border text-fg-primary" : ""
+      }`}
+      style={{
+        background: styles.background,
+        borderColor: styles.borderColor,
+        color: styles.color,
+        boxShadow: landed ? styles.glow : "none",
+        transition: "box-shadow 400ms",
+      }}
+    >
+      {char || "·"}
+    </motion.span>
+  );
+}
+
+// ============================================================
 // Headline with a one-shot shine sweep across the letters
 // ============================================================
 
-function Headline({ text, won }: { text: string; won: boolean }) {
+function Headline({
+  text,
+  won,
+  lost,
+}: {
+  text: string;
+  won: boolean;
+  lost: boolean;
+}) {
   return (
     <motion.h1
       initial={{ opacity: 0, y: 30, scale: 0.88 }}
@@ -124,7 +540,8 @@ function Headline({ text, won }: { text: string; won: boolean }) {
       className="relative mt-4 font-semibold tracking-[-0.04em] leading-[0.88]"
       style={{
         fontSize: "clamp(72px, 12vw, 160px)",
-        color: won ? MAGENTA : undefined,
+        color: won ? MAGENTA : lost ? LOSS_RED : undefined,
+        textShadow: lost ? "0 0 60px rgba(255, 92, 106, 0.25)" : undefined,
       }}
     >
       {text}
@@ -167,7 +584,6 @@ function ShineSweep() {
 // ============================================================
 
 function Sparks() {
-  // Deterministic per mount — picks random angles/distances once.
   const sparks = useMemo(
     () =>
       Array.from({ length: 14 }).map(() => {
@@ -223,94 +639,9 @@ function Sparks() {
 }
 
 // ============================================================
-// Revealed code card — flip-in digits with landing glow + count-up
+// CountUp — ticks from 0 → value when it mounts
 // ============================================================
 
-function RevealedCode({
-  label,
-  code,
-  guesses,
-  pale,
-  cracked,
-}: {
-  label: string;
-  code: string;
-  guesses: number;
-  pale?: boolean;
-  cracked?: boolean;
-}) {
-  const countStart = 0.35 + code.length * 0.12;
-  return (
-    <div
-      className={`panel-elevated p-6 md:p-7 relative overflow-hidden transition-colors ${
-        pale ? "" : "border-accent/30"
-      }`}
-    >
-      <div className="text-[10px] uppercase tracking-[0.28em] text-fg-muted flex items-center justify-between">
-        <span>{label}</span>
-        {cracked && (
-          <span className="text-accent text-[9px] tracking-[0.28em]">Cracked</span>
-        )}
-      </div>
-
-      <div className="mt-4 flex items-center gap-2">
-        {code.split("").map((c, i) => (
-          <DigitFlip key={i} char={c} delay={0.35 + i * 0.12} bright={!pale} />
-        ))}
-      </div>
-
-      <div className="mt-4 text-xs text-fg-muted inline-flex items-center gap-1">
-        <span>Cracked in</span>
-        <CountUp value={guesses} delay={countStart} />
-        <span>guess{guesses === 1 ? "" : "es"}</span>
-      </div>
-    </div>
-  );
-}
-
-function DigitFlip({
-  char,
-  delay,
-  bright,
-}: {
-  char: string;
-  delay: number;
-  bright?: boolean;
-}) {
-  const [landed, setLanded] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setLanded(true), delay * 1000 + 500);
-    return () => clearTimeout(t);
-  }, [delay]);
-
-  return (
-    <motion.span
-      initial={{ rotateX: -90, opacity: 0 }}
-      animate={{ rotateX: 0, opacity: 1 }}
-      transition={{ delay, duration: 0.55, ease: [0.2, 0.8, 0.2, 1] }}
-      className={`w-12 h-14 md:w-14 md:h-16 grid place-items-center rounded-xl border font-mono text-2xl md:text-3xl font-semibold relative ${
-        bright
-          ? "bg-accent/10 border-accent/40 text-accent"
-          : "bg-ink-elevated border-ink-border text-fg-primary"
-      }`}
-      style={{
-        boxShadow:
-          landed && bright
-            ? `0 0 20px -4px ${MAGENTA}`
-            : "none",
-        transition: "box-shadow 400ms",
-      }}
-    >
-      {char || "·"}
-    </motion.span>
-  );
-}
-
-/**
- * Tiny count-up that ticks from 0 → value. No ref-guarded single-shot
- * (that mis-behaves under StrictMode double-invoke); we just animate
- * whenever `value` settles.
- */
 function CountUp({ value, delay = 0 }: { value: number; delay?: number }) {
   const mv = useMotionValue(0);
   const [shown, setShown] = useState(0);
@@ -328,5 +659,5 @@ function CountUp({ value, delay = 0 }: { value: number; delay?: number }) {
     };
   }, [mv, value, delay]);
 
-  return <span className="font-mono text-fg-primary">{shown}</span>;
+  return <>{shown}</>;
 }
