@@ -1,0 +1,156 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================
+   Crackd — global tokens and reset
+   Dark-only, so we skip the prefers-color-scheme dance.
+   ============================================================= */
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --accent-glow: rgba(184, 255, 59, 0.35);
+  }
+
+  ::selection {
+    background: #b8ff3b;
+    color: #070709;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    background: #070709;
+    color: #f4f4f7;
+    font-family: "Inter", system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    /* faint grid of dots for texture without noise */
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      rgba(255, 255, 255, 0.035) 1px,
+      transparent 0
+    );
+    background-size: 24px 24px;
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(184, 255, 59, 0.4);
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-ink-raised border border-ink-border rounded-2xl;
+  }
+  .panel-elevated {
+    @apply bg-ink-elevated border border-ink-border rounded-2xl shadow-card;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed select-none;
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-ink shadow-cta;
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-fg-primary border border-ink-border;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    @apply bg-ink-elevated;
+  }
+  .btn-danger {
+    @apply btn text-danger border;
+    background-color: rgba(255, 92, 106, 0.12);
+    border-color: rgba(255, 92, 106, 0.3);
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-ink-elevated border border-ink-border text-fg-secondary;
+    font-family: "Space Grotesk", system-ui, sans-serif;
+  }
+  .chip-accent {
+    @apply chip text-accent;
+    background-color: rgba(184, 255, 59, 0.12);
+    border-color: rgba(184, 255, 59, 0.2);
+  }
+  .chip-honey {
+    @apply chip text-honey;
+    background-color: rgba(246, 185, 59, 0.12);
+    border-color: rgba(246, 185, 59, 0.2);
+  }
+
+  .input {
+    @apply bg-ink-elevated border border-ink-border rounded-xl px-4 py-2.5 text-fg-primary placeholder:text-fg-muted focus:outline-none transition-colors;
+  }
+  .input:focus {
+    border-color: rgba(184, 255, 59, 0.4);
+  }
+
+  :focus-visible {
+    outline: 2px solid #b8ff3b;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .grid-cols-game-board {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .mask-fade-y {
+    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+  }
+  /* hairline divider */
+  .divider {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgba(255, 255, 255, 0.08),
+      transparent
+    );
+  }
+}
