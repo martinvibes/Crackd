@@ -26,6 +26,11 @@ export interface S2CGameStarted {
   view: SafeGameView;
 }
 
+export interface S2CCodesSet {
+  gameId: string;
+  view: SafeGameView;
+}
+
 export interface SafeGameView {
   gameId: string;
   mode: string;

@@ -78,7 +78,8 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
         stakeAsset: payload.asset,
       });
 
-      // vs-AI: The Vault is immediately ready with a code.
+      // vs-AI is turn-based: both sides have codes. The Vault's code is
+      // generated server-side; the player sets theirs in the next step.
       if (mode === "vs_ai_free" || mode === "vs_ai_staked") {
         state.playerTwo = "vault";
         state.status = "setting_codes";
@@ -96,6 +97,17 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
 
       const inviteCode = gameId.slice(-6).toUpperCase();
       socket.emit("game_created", { gameId, inviteCode });
+
+      // For vs-AI, there's no opponent to wait for — send the initial
+      // view now so the client transitions straight to the board.
+      if (mode === "vs_ai_free" || mode === "vs_ai_staked") {
+        socket.emit("game_started", {
+          gameId,
+          playerOne: walletAddress,
+          playerTwo: "vault",
+          view: buildView(state, "playerOne"),
+        });
+      }
       ack({ gameId, inviteCode });
     } catch (err) {
       logger.error({ err }, "create_game failed");
@@ -183,8 +195,18 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
 
       await services.gameStore.save(state);
 
-      if (bothSet) {
-        io.to(payload.gameId).emit("codes_set", { gameId: payload.gameId });
+      // Push each socket its own view (each player only sees their own
+      // secret) so the client can render the active board immediately.
+      const sockets = await io.in(payload.gameId).fetchSockets();
+      for (const s of sockets) {
+        const wallet = s.data.walletAddress;
+        if (!wallet) continue;
+        const theirSlot = slotFor(state, wallet);
+        if (!theirSlot) continue;
+        s.emit("codes_set", {
+          gameId: payload.gameId,
+          view: buildView(state, theirSlot),
+        });
       }
       ack({ ok: true });
     } catch (err) {
@@ -223,7 +245,7 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
       if (slot === "playerOne") state.playerOneGuesses.push(guess);
       else state.playerTwoGuesses.push(guess);
 
-      // Flip turn (or keep — AI takes it immediately below).
+      // Flip turn (vs-AI: after this emit, the AI takes its turn below).
       state.currentTurn = otherSlot(slot);
 
       const finished = checkGameOver(state);
@@ -246,14 +268,12 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
       io.to(payload.gameId).emit("guess_result", guessEvent);
       ack({ ok: true });
 
-      // Handle end-of-game before any AI follow-up.
       if (finished) {
         await resolveFinished(io, services, state, finished);
         return;
       }
 
-      // vs-AI: after the human moves, the AI takes its turn against the
-      // human's code.
+      // vs-AI: The Vault takes its turn against the player's code.
       if (state.mode === "vs_ai_free" || state.mode === "vs_ai_staked") {
         await takeAiTurn(io, services, state);
       }
@@ -447,15 +467,24 @@ async function resolveFinished(
 
 /**
  * vs-AI follow-up: The Vault takes its turn against the human's code,
- * optionally with a Pidgin taunt.
+ * then fires a Pidgin taunt. Fires a short think-time delay so the
+ * frontend can render the "opponent's turn" state — makes the back-and-
+ * forth feel like an actual match, not instant pong.
  */
-async function takeAiTurn(io: CrackdServer, services: Services, state: GameState): Promise<void> {
+async function takeAiTurn(
+  io: CrackdServer,
+  services: Services,
+  state: GameState,
+): Promise<void> {
   const humanCode = state.playerOneCode;
   if (!humanCode) return;
 
-  // Build AI's prior-guesses + feedback for the prompt.
   const aiPrior = state.playerTwoGuesses.map((g) => g.code);
   const feedback = state.playerTwoGuesses.map((g) => g.result);
+
+  // Small artificial delay so the "thinking…" indicator registers.
+  await new Promise((r) => setTimeout(r, 900));
+
   const aiGuess = await services.ai.getAIGuess(aiPrior, feedback);
   const result = computeGuessResult(humanCode, aiGuess);
   state.playerTwoGuesses.push({ code: aiGuess, result, timestamp: Date.now() });
@@ -478,7 +507,7 @@ async function takeAiTurn(io: CrackdServer, services: Services, state: GameState
     view: buildView(state, "playerOne"),
   });
 
-  // Fire a Pidgin taunt (fire-and-forget).
+  // Optional taunt (fire-and-forget).
   const tauntEvent =
     result.pots === CODE_LENGTH
       ? "ai_cracked_code"

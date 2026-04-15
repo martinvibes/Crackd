@@ -25,9 +25,7 @@ export function useGameSocket() {
 
     const onStarted = (e: S2CGameStarted) => setView(e.view);
     const onGuess = (e: S2CGuessResult) => setView(e.view);
-    const onCodesSet = () => {
-      // trigger a view refresh via server — server will re-send on next guess
-    };
+    const onCodesSet = (e: { view: SafeGameView }) => setView(e.view);
     const onOver = (e: S2CGameOver) => setFinished(e);
     const onChat = (m: S2CChatMessage) => addChat(m);
     const onTaunt = (t: S2CVaultTaunt) => {

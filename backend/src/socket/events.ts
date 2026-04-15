@@ -66,6 +66,8 @@ export interface S2CGameStarted {
 
 export interface S2CCodesSet {
   gameId: string;
+  /** Fresh view so the client can transition out of setting-codes. */
+  view: SafeGameView;
 }
 
 export interface S2CGuessResult {

@@ -12,6 +12,7 @@
  * game never stalls because Claude is slow.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { randomInt } from "node:crypto";
 import type { AppConfig } from "../config.js";
 import { CODE_LENGTH, validateCode } from "./gameLogic.js";
 import type { Guess, GuessResult } from "../types/game.js";
@@ -88,8 +89,7 @@ export class AIService {
    */
   generateVaultCode(): string {
     const digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
-    // Fisher–Yates with crypto.randomInt
-    const { randomInt } = require("node:crypto") as typeof import("node:crypto");
+    // Fisher–Yates shuffle using crypto.randomInt for unbiased picking.
     for (let i = digits.length - 1; i > 0; i--) {
       const j = randomInt(0, i + 1);
       const a = digits[i]!;
