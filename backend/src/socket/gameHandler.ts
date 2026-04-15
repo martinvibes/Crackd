@@ -96,6 +96,7 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
       socket.data.walletAddress = walletAddress;
 
       const inviteCode = gameId.slice(-6).toUpperCase();
+      await services.gameStore.bindInvite(inviteCode, gameId);
       socket.emit("game_created", { gameId, inviteCode });
 
       // For vs-AI, there's no opponent to wait for — send the initial

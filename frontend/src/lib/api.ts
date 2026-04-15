@@ -77,6 +77,7 @@ export const api = {
     ),
   player: (wallet: string) => j<PlayerStats>(`/api/player/${wallet}`),
   game: (gameId: string) => j<unknown>(`/api/game/${gameId}`),
+  resolveInvite: (code: string) => j<{ gameId: string }>(`/api/invite/${code}`),
 };
 
 export { BASE as API_BASE };

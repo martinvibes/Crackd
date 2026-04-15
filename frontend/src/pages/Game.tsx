@@ -149,7 +149,7 @@ export default function Game() {
     setBusy(true);
     setErr(null);
     try {
-      const full = invite.includes("-") ? invite : await lookupGameIdFromInvite(invite);
+      const full = await lookupGameIdFromInvite(invite);
       if (!full) throw new Error("Invite not found");
 
       const wallet = address ?? generateAnon();
@@ -280,10 +280,18 @@ function generateAnon(): string {
 }
 
 /**
- * Invite-code lookup stub. For MVP we only resolve full game ids; short
- * codes are copy-and-paste friendly but the backend doesn't yet expose
- * a short-code → game-id endpoint.
+ * Resolve either a full UUID or a 6-character invite code to a real
+ * gameId. Short codes go through the backend `/api/invite/:code`
+ * mapping that's written at create_game time.
  */
 async function lookupGameIdFromInvite(invite: string): Promise<string | null> {
-  return invite.length > 20 ? invite : null;
+  const trimmed = invite.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 20) return trimmed; // looks like a full uuid
+  try {
+    const { gameId } = await api.resolveInvite(trimmed);
+    return gameId;
+  } catch {
+    return null;
+  }
 }

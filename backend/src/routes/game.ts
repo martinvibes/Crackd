@@ -20,6 +20,28 @@ export function gameRouter(services: Services): Router {
   const r = Router();
 
   /**
+   * GET /api/invite/:code — resolve a short invite code (like "5DA70B")
+   * into a full gameId so the joiner doesn't need to paste the uuid.
+   */
+  r.get("/invite/:code", async (req, res, next) => {
+    try {
+      const code = String(req.params.code || "").trim().toUpperCase();
+      if (!/^[A-Z0-9]{6}$/.test(code)) {
+        res.status(400).json({ error: "Invalid invite code" });
+        return;
+      }
+      const gameId = await services.gameStore.resolveInvite(code);
+      if (!gameId) {
+        res.status(404).json({ error: "Invite not found" });
+        return;
+      }
+      res.json({ gameId });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
    * GET /api/game/:gameId — sanitised read for replay / share card.
    */
   r.get("/game/:gameId", async (req, res, next) => {

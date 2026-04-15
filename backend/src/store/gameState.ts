@@ -82,6 +82,24 @@ export class GameStateStore {
    * Wraps back to 1 if it ever exceeds u32::MAX — extremely unlikely but
    * keeps the value in range.
    */
+  /**
+   * Store the short invite → full gameId mapping so joiners can paste
+   * just the 6-character code. TTL matches the game session so stale
+   * invites disappear on their own.
+   */
+  async bindInvite(inviteCode: string, gameId: string): Promise<void> {
+    await this.redis.set(
+      `invite:${inviteCode.toUpperCase()}`,
+      gameId,
+      "EX",
+      this.cfg.GAME_SESSION_TTL_SECONDS,
+    );
+  }
+
+  async resolveInvite(inviteCode: string): Promise<string | null> {
+    return await this.redis.get(`invite:${inviteCode.toUpperCase()}`);
+  }
+
   async nextHubSessionId(): Promise<number> {
     const n = await this.redis.incr("crackd:hub:session_seq");
     const MAX_U32 = 0xffff_ffff;

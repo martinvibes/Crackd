@@ -10,8 +10,8 @@
  *
  * Everything uses brand magenta + neutrals — no extra colours.
  */
-import { animate, motion, useMotionValue, useSpring } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { animate, motion, useMotionValue } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
 import type { S2CGameOver } from "../../lib/socket";
 
 const MAGENTA = "#FF00A8";
@@ -306,29 +306,27 @@ function DigitFlip({
   );
 }
 
-/** Tiny framer-motion count-up that ticks from 0 → value. */
+/**
+ * Tiny count-up that ticks from 0 → value. No ref-guarded single-shot
+ * (that mis-behaves under StrictMode double-invoke); we just animate
+ * whenever `value` settles.
+ */
 function CountUp({ value, delay = 0 }: { value: number; delay?: number }) {
   const mv = useMotionValue(0);
-  const spring = useSpring(mv, { stiffness: 90, damping: 16 });
   const [shown, setShown] = useState(0);
-  const didRunRef = useRef(false);
 
   useEffect(() => {
-    if (didRunRef.current) return;
-    didRunRef.current = true;
-    const t = setTimeout(() => {
-      const controls = animate(mv, value, {
-        duration: 0.9,
-        ease: [0.2, 0.8, 0.2, 1],
-      });
-      return () => controls.stop();
-    }, delay * 1000);
-    return () => clearTimeout(t);
+    const unsub = mv.on("change", (v) => setShown(Math.round(v)));
+    const controls = animate(mv, value, {
+      duration: 0.9,
+      delay,
+      ease: [0.2, 0.8, 0.2, 1],
+    });
+    return () => {
+      controls.stop();
+      unsub();
+    };
   }, [mv, value, delay]);
-
-  useEffect(() => {
-    return spring.on("change", (v) => setShown(Math.round(v)));
-  }, [spring]);
 
   return <span className="font-mono text-fg-primary">{shown}</span>;
 }
