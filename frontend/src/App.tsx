@@ -12,7 +12,7 @@ export default function App() {
         {/* Home owns its own chrome (no bottom nav — cleaner landing). */}
         <Route path="/" element={<Home />} />
 
-        {/* Temporary brand-review route. Delete once a logo is picked. */}
+        {/* Brand review — kept for reference. */}
         <Route path="/logos" element={<Logos />} />
 
         {/* Everything else gets the game-app chrome with floating bottom tab bar. */}

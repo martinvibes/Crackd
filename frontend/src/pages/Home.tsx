@@ -21,6 +21,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import WalletButton from "../components/WalletButton";
+import { BrandMark, Wordmark } from "../components/Brand";
 
 const INK = "#040008";
 const HOT = "#FF00A8";
@@ -71,12 +72,11 @@ function Nav() {
       }}
     >
       <div className="max-w-[1280px] mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <span
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ background: HOT, boxShadow: `0 0 20px ${HOT}` }}
-          />
-          <span className="text-[17px]">CRACKD</span>
+        <Link to="/" className="inline-flex items-center gap-2 select-none" aria-label="Crackd home">
+          <span style={{ color: BONE }}>
+            <BrandMark size={22} />
+          </span>
+          <Wordmark size={17} />
         </Link>
         <div className="flex items-center gap-6 text-[11px] uppercase tracking-[0.25em] text-white/60">
           <Link to="/play" className="hidden md:inline hover:text-white transition-colors">Play</Link>

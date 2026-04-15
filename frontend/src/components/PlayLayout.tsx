@@ -6,6 +6,7 @@
  */
 import { Link, NavLink, Outlet } from "react-router-dom";
 import WalletButton from "./WalletButton";
+import { BrandMark, Wordmark } from "./Brand";
 
 const MAGENTA = "#FF00A8";
 
@@ -15,12 +16,13 @@ export default function PlayLayout() {
       {/* top bar — logo + wallet only, no nav links */}
       <header className="sticky top-0 z-30 backdrop-blur-xl bg-ink/70 border-b border-ink-border">
         <div className="max-w-6xl mx-auto px-5 md:px-8 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-semibold">
-            <span
-              className="w-2 h-2 rounded-full"
-              style={{ background: MAGENTA, boxShadow: `0 0 12px ${MAGENTA}` }}
-            />
-            <span className="text-[15px] tracking-tight">CRACKD</span>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-fg-primary"
+            aria-label="Crackd home"
+          >
+            <BrandMark size={20} />
+            <Wordmark size={15} />
           </Link>
           <WalletButton />
         </div>

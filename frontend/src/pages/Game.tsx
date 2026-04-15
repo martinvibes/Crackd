@@ -331,7 +331,7 @@ function ModePicker({ onPick }: { onPick: (m: Mode) => void }) {
 
   return (
     <div className="animate-fade-in">
-      <div className="text-[11px] uppercase tracking-[0.22em] text-fg-muted">
+      <div className="text-[14px] uppercase tracking-[0.22em] text-fg-muted font-semibold">
         Start a game
       </div>
       <h1 className="mt-2 text-4xl md:text-5xl font-semibold tracking-[-0.03em]">
