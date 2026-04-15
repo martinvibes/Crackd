@@ -43,6 +43,7 @@ import { LobbyPanel } from "../components/game/LobbyPanel";
 import { Board } from "../components/game/board/Board";
 import { FinishedPanel } from "../components/game/FinishedPanel";
 import { ChatDock } from "../components/game/ChatDock";
+import { HelpDock } from "../components/game/HelpDock";
 
 type Stage =
   | "mode_pick"
@@ -258,6 +259,10 @@ export default function Game() {
           onPlayAgain={goBackToModePicker}
         />
       )}
+
+      {/* Always-on floating help — newcomers can open the worked
+          example from any stage of /play without cluttering any panel. */}
+      <HelpDock />
     </div>
   );
 }
