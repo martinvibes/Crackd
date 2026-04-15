@@ -19,6 +19,7 @@ import { poolRouter } from "./routes/pool.js";
 import { leaderboardRouter } from "./routes/leaderboard.js";
 import { playerRouter } from "./routes/player.js";
 import { gameRouter } from "./routes/game.js";
+import { attachSocketServer } from "./socket/index.js";
 
 async function main() {
   const cfg = loadConfig();
@@ -51,8 +52,9 @@ async function main() {
   app.use(errorHandler);
 
   const httpServer = createServer(app);
+  const io = attachSocketServer(httpServer, services);
   httpServer.listen(cfg.PORT, () => {
-    logger.info(`Crackd backend listening on :${cfg.PORT}`);
+    logger.info(`Crackd backend listening on :${cfg.PORT} (REST + Socket.io)`);
   });
 
   // Graceful shutdown
