@@ -6,28 +6,29 @@ export default {
     extend: {
       colors: {
         ink: {
-          DEFAULT: "#070709",
-          raised: "#0F0F14",
-          elevated: "#16161E",
-          border: "rgba(255, 255, 255, 0.08)",
-          "border-strong": "rgba(255, 255, 255, 0.14)",
+          DEFAULT: "#040008", // aligned with Home — deep almost-black
+          raised: "#0B0612",
+          elevated: "#14091C",
+          border: "rgba(255, 0, 168, 0.14)", // magenta hairline
+          "border-strong": "rgba(255, 0, 168, 0.28)",
         },
         fg: {
-          primary: "#F4F4F7",
-          secondary: "#9A9AA8",
-          muted: "#5A5A68",
-          dim: "#32323D",
+          primary: "#EDE6F0",
+          secondary: "#A69DAD",
+          muted: "#5E5568",
+          dim: "#2C2630",
         },
         accent: {
-          DEFAULT: "#B8FF3B", // acid lime — brand, CTAs, POT (correct place)
-          glow: "rgba(184, 255, 59, 0.35)",
-          dim: "rgba(184, 255, 59, 0.12)",
-          deep: "#95CC2B",
+          DEFAULT: "#FF00A8", // electric magenta — the only real colour
+          glow: "rgba(255, 0, 168, 0.35)",
+          dim: "rgba(255, 0, 168, 0.12)",
+          deep: "#CC0086",
         },
+        // PAN chip: soft neutral outline. Intentionally NOT a second brand colour.
         honey: {
-          DEFAULT: "#F6B93B", // warm amber — PAN (wrong place)
-          glow: "rgba(246, 185, 59, 0.35)",
-          dim: "rgba(246, 185, 59, 0.12)",
+          DEFAULT: "#EDE6F0",
+          glow: "rgba(237, 230, 240, 0.25)",
+          dim: "rgba(237, 230, 240, 0.08)",
         },
         danger: {
           DEFAULT: "#FF5C6A",

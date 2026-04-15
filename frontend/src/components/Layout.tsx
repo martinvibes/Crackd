@@ -28,7 +28,7 @@ function CrackdLogo() {
         <path d="M7 8.5V6a4 4 0 0 1 8 0v2.5" stroke="currentColor" strokeWidth="1.5"/>
         <circle cx="11" cy="14" r="1.5" fill="currentColor"/>
       </svg>
-      <span className="font-display font-bold text-[17px] tracking-tightest text-fg-primary">
+      <span className="font-display font-semibold text-[17px] tracking-tightest text-fg-primary">
         CRACK<span className="text-accent">D</span>
       </span>
     </NavLink>
@@ -84,7 +84,7 @@ export default function Layout() {
       <footer className="border-t border-ink-border mt-16">
         <div className="max-w-6xl mx-auto px-5 md:px-8 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs text-fg-muted">
           <div className="flex items-center gap-3">
-            <span className="font-display font-bold text-fg-secondary">CRACKD</span>
+            <span className="font-display font-semibold text-fg-secondary">CRACKD</span>
             <span>Built on Stellar · Testnet</span>
           </div>
           <div className="flex items-center gap-4">

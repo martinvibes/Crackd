@@ -12,20 +12,20 @@
 @layer base {
   :root {
     color-scheme: dark;
-    --accent-glow: rgba(184, 255, 59, 0.35);
+    --accent-glow: rgba(255, 0, 168, 0.35);
   }
 
   ::selection {
-    background: #b8ff3b;
-    color: #070709;
+    background: #ff00a8;
+    color: #040008;
   }
 
   html,
   body,
   #root {
     height: 100%;
-    background: #070709;
-    color: #f4f4f7;
+    background: #040008;
+    color: #ede6f0;
     font-family: "Inter", system-ui, sans-serif;
     font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
@@ -64,7 +64,7 @@
     border-radius: 8px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(184, 255, 59, 0.4);
+    background: rgba(255, 0, 168, 0.45);
   }
 }
 
@@ -109,24 +109,26 @@
   }
   .chip-accent {
     @apply chip text-accent;
-    background-color: rgba(184, 255, 59, 0.12);
-    border-color: rgba(184, 255, 59, 0.2);
+    background-color: rgba(255, 0, 168, 0.12);
+    border-color: rgba(255, 0, 168, 0.28);
   }
+  /* PAN chip: neutral outline. Same shape as accent chip, no second colour. */
   .chip-honey {
-    @apply chip text-honey;
-    background-color: rgba(246, 185, 59, 0.12);
-    border-color: rgba(246, 185, 59, 0.2);
+    @apply chip;
+    background-color: rgba(237, 230, 240, 0.04);
+    border-color: rgba(237, 230, 240, 0.18);
+    color: rgba(237, 230, 240, 0.95);
   }
 
   .input {
     @apply bg-ink-elevated border border-ink-border rounded-xl px-4 py-2.5 text-fg-primary placeholder:text-fg-muted focus:outline-none transition-colors;
   }
   .input:focus {
-    border-color: rgba(184, 255, 59, 0.4);
+    border-color: rgba(255, 0, 168, 0.4);
   }
 
   :focus-visible {
-    outline: 2px solid #b8ff3b;
+    outline: 2px solid #ff00a8;
     outline-offset: 2px;
     border-radius: 4px;
   }

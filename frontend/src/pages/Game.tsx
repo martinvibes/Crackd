@@ -25,7 +25,6 @@ import {
   buildDuelCreateTx,
   buildDuelJoinTx,
   buildVaultStakeTx,
-  fromStroops,
   shortAddress,
   toStroops,
 } from "../lib/stellar";
@@ -58,6 +57,21 @@ export default function Game() {
 
   // Clear store when we unmount the page
   useEffect(() => () => reset(), [reset]);
+
+  // Keep mode state in sync with URL — so browser back / "Change mode"
+  // button both work via the ?mode= query param.
+  useEffect(() => {
+    setMode(modeParam);
+  }, [modeParam]);
+
+  // Shared helper: go back to mode picker (or previous stage as needed).
+  function goBackToModePicker() {
+    reset();
+    setGameId(null);
+    setInviteCode(null);
+    setMode(null);
+    setSp({});
+  }
 
   const stage: Stage = useMemo(() => {
     if (finished) return "finished";
@@ -171,6 +185,7 @@ export default function Game() {
           onInviteChange={setJoinInviteInput}
           onCreate={handleCreate}
           onJoin={handleJoin}
+          onBack={goBackToModePicker}
         />
       )}
 
@@ -238,6 +253,35 @@ export default function Game() {
 
 // ------------------------- Sub-components -------------------------
 
+/**
+ * Small "← Change mode" link that sits above every in-flight panel so
+ * the user never has to reach for the browser back button.
+ */
+function BackLink({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="group inline-flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-fg-muted hover:text-accent transition-colors"
+    >
+      <span
+        className="inline-flex items-center justify-center h-7 w-7 rounded-full border border-ink-border group-hover:border-accent/40 transition-colors"
+        aria-hidden
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path
+            d="M7.5 2 3.5 6l4 4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+      {label}
+    </button>
+  );
+}
+
 function ErrorBar({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div className="mb-6 px-4 py-3 rounded-xl bg-danger/10 border border-danger/30 text-danger text-sm flex items-center justify-between">
@@ -250,34 +294,161 @@ function ErrorBar({ message, onClose }: { message: string; onClose: () => void }
 }
 
 function ModePicker({ onPick }: { onPick: (m: Mode) => void }) {
+  const cards: Array<{
+    m: Mode;
+    t: string;
+    d: string;
+    icon: React.ReactNode;
+    staked?: boolean;
+  }> = [
+    {
+      m: "vs_ai_free",
+      t: "vs AI · free",
+      d: "No wallet, no stake. Warm up.",
+      icon: <IconSoloDial />,
+    },
+    {
+      m: "vs_ai_staked",
+      t: "vs AI · staked",
+      d: "Pay to play. Win up to 2× from the pool.",
+      icon: <IconStakedDial />,
+      staked: true,
+    },
+    {
+      m: "pvp_casual",
+      t: "Multiplayer · casual",
+      d: "Challenge a friend. No money.",
+      icon: <IconDuo />,
+    },
+    {
+      m: "pvp_staked",
+      t: "Multiplayer · staked",
+      d: "1v1, winner takes the pot. 2.5% fee.",
+      icon: <IconStakedDuo />,
+      staked: true,
+    },
+  ];
+
   return (
     <div className="animate-fade-in">
-      <div className="text-[11px] uppercase tracking-[0.22em] text-fg-muted">Start a game</div>
-      <h1 className="mt-2 text-4xl md:text-5xl font-display font-bold tracking-tightest">
+      <div className="text-[11px] uppercase tracking-[0.22em] text-fg-muted">
+        Start a game
+      </div>
+      <h1 className="mt-2 text-4xl md:text-5xl font-semibold tracking-[-0.03em]">
         Pick how you want to play.
       </h1>
+
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-3">
-        {[
-          { m: "vs_ai_free" as Mode, t: "vs AI · free", d: "No wallet, no stake. Warm up." },
-          { m: "vs_ai_staked" as Mode, t: "vs AI · staked", d: "Pay to play. Win up to 2x from the pool.", accent: true },
-          { m: "pvp_casual" as Mode, t: "PvP · casual", d: "Challenge a friend. No money." },
-          { m: "pvp_staked" as Mode, t: "PvP · staked", d: "1v1, winner takes the pot. 2.5% fee.", accent: true },
-        ].map(({ m, t, d, accent }) => (
+        {cards.map(({ m, t, d, icon, staked }) => (
           <button
             key={m}
             onClick={() => onPick(m)}
-            className={`text-left p-5 rounded-2xl border transition-all hover:-translate-y-0.5 ${
-              accent
-                ? "border-accent/25 bg-gradient-to-br from-accent-dim to-ink-raised hover:border-accent/50"
-                : "border-ink-border bg-ink-raised hover:border-ink-border-strong"
+            className={`group relative text-left p-5 md:p-6 rounded-2xl border bg-ink-raised transition-all hover:-translate-y-0.5 hover:bg-ink-elevated ${
+              staked
+                ? "border-accent/20 hover:border-accent/45"
+                : "border-ink-border hover:border-ink-border-strong"
             }`}
           >
-            <div className="text-xs uppercase tracking-[0.18em] text-fg-muted">{t}</div>
-            <div className="mt-2 text-base font-medium text-fg-primary">{d}</div>
+            <div className="flex items-start justify-between gap-4">
+              <span
+                className={`inline-flex items-center justify-center w-11 h-11 rounded-xl transition-colors ${
+                  staked
+                    ? "bg-accent/10 text-accent group-hover:bg-accent/15"
+                    : "bg-ink-elevated text-fg-secondary group-hover:text-fg-primary"
+                }`}
+              >
+                {icon}
+              </span>
+              {staked ? (
+                <span className="text-[9px] uppercase tracking-[0.24em] text-accent/80 pt-1">
+                  Real stakes
+                </span>
+              ) : (
+                <span className="text-[9px] uppercase tracking-[0.24em] text-fg-muted pt-1">
+                  No wager
+                </span>
+              )}
+            </div>
+
+            <div className="mt-6 text-xs uppercase tracking-[0.2em] text-fg-muted">
+              {t}
+            </div>
+            <div className="mt-1.5 text-base md:text-[17px] font-medium text-fg-primary leading-snug">
+              {d}
+            </div>
+            <div className="mt-4 inline-flex items-center gap-1.5 text-xs text-fg-secondary group-hover:text-fg-primary transition-colors">
+              Start
+              <span className="transition-transform group-hover:translate-x-0.5">→</span>
+            </div>
           </button>
         ))}
       </div>
     </div>
+  );
+}
+
+// ============================================================
+// Mode icons — geometric glyphs that riff on the home page's dial.
+// ============================================================
+
+function IconSoloDial() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="12" cy="12" r="2.4" fill="currentColor" />
+      <line
+        x1="12"
+        y1="3"
+        x2="12"
+        y2="5.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconStakedDial() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="10" cy="13" r="7" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="10" cy="13" r="2" fill="currentColor" />
+      <rect
+        x="17"
+        y="3"
+        width="5"
+        height="5"
+        fill="currentColor"
+        transform="rotate(45 19.5 5.5)"
+      />
+    </svg>
+  );
+}
+
+function IconDuo() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="9" cy="12" r="5.5" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="15" cy="12" r="5.5" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function IconStakedDuo() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="8" cy="14" r="4.8" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="14" cy="14" r="4.8" stroke="currentColor" strokeWidth="1.6" />
+      <rect
+        x="17.5"
+        y="3"
+        width="4.5"
+        height="4.5"
+        fill="currentColor"
+        transform="rotate(45 19.75 5.25)"
+      />
+    </svg>
   );
 }
 
@@ -290,6 +461,7 @@ function SetupPanel({
   onInviteChange,
   onCreate,
   onJoin,
+  onBack,
 }: {
   mode: Mode;
   assets: Asset[];
@@ -299,6 +471,7 @@ function SetupPanel({
   onInviteChange: (v: string) => void;
   onCreate: (asset?: string, stake?: number) => void;
   onJoin: (invite: string) => void;
+  onBack: () => void;
 }) {
   const [asset, setAsset] = useState("XLM");
   const [stake, setStake] = useState(1);
@@ -308,17 +481,22 @@ function SetupPanel({
 
   return (
     <div className="animate-fade-in">
-      <div className="text-[11px] uppercase tracking-[0.22em] text-fg-muted">{modeLabel(mode)}</div>
-      <h1 className="mt-2 text-4xl md:text-5xl font-display font-bold tracking-tightest">
-        {mode.startsWith("vs_ai") ? "Face The Vault." : "Start a duel."}
+      <BackLink label="Change mode" onClick={onBack} />
+      <div className="mt-6 text-[11px] uppercase tracking-[0.22em] text-fg-muted">{modeLabel(mode)}</div>
+      <h1 className="mt-2 text-4xl md:text-5xl font-semibold tracking-[-0.03em]">
+        {mode.startsWith("vs_ai") ? "Face The Vault." : "Open a multiplayer match."}
       </h1>
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* ---- create ---- */}
         <div className="panel-elevated p-6">
-          <div className="text-xs uppercase tracking-[0.18em] text-fg-muted">Create</div>
-          <div className="mt-1 text-xl font-display font-semibold">
-            {mode.startsWith("vs_ai") ? "Start vs Vault" : "Open a duel room"}
+          <div className="text-xs uppercase tracking-[0.18em] text-fg-muted">
+            {mode.startsWith("vs_ai") ? "Step 1 of 1" : "Create"}
+          </div>
+          <div className="mt-1 text-xl font-semibold">
+            {mode.startsWith("vs_ai")
+              ? "Set your code & play"
+              : "Open a multiplayer room"}
           </div>
 
           {isStaked && (
@@ -410,8 +588,14 @@ function SetupPanel({
             </button>
           </div>
         ) : (
-          <div className="panel p-6 text-fg-muted text-sm">
-            vs-AI is single-player — no join needed.
+          <div className="panel p-6">
+            <div className="text-xs uppercase tracking-[0.18em] text-fg-muted">
+              Solo mode
+            </div>
+            <div className="mt-1 text-xl font-semibold">Just you vs The Vault</div>
+            <p className="mt-3 text-sm text-fg-secondary leading-relaxed">
+              No one to invite — the Vault is your opponent. Hit <span className="text-accent">{mode === "vs_ai_staked" ? "Sign & stake" : "Create game"}</span> to begin.
+            </p>
           </div>
         )}
       </div>
@@ -429,13 +613,15 @@ function LobbyPanel({
   onCancel: () => void;
 }) {
   return (
-    <div className="panel-elevated p-10 text-center animate-fade-in">
-      <div className="text-[11px] uppercase tracking-[0.22em] text-fg-muted">
-        {modeLabel(mode)} · Waiting
-      </div>
-      <div className="mt-3 text-2xl font-display font-semibold">
-        Share this invite.
-      </div>
+    <div className="animate-fade-in">
+      <BackLink label="Leave lobby" onClick={onCancel} />
+      <div className="mt-6 panel-elevated p-10 text-center">
+        <div className="text-[11px] uppercase tracking-[0.22em] text-fg-muted">
+          {modeLabel(mode)} · Waiting
+        </div>
+        <div className="mt-3 text-2xl font-semibold">
+          Share this invite.
+        </div>
       <div className="mt-6 inline-flex items-center gap-3 px-5 py-4 rounded-xl bg-ink border border-ink-border">
         <span className="font-mono text-3xl tracking-[0.3em] text-accent">{inviteCode}</span>
         <button
@@ -455,6 +641,7 @@ function LobbyPanel({
       <button onClick={onCancel} className="btn-ghost mt-6">
         Cancel
       </button>
+      </div>
     </div>
   );
 }
@@ -597,7 +784,7 @@ function TurnIndicator({ view }: { view: import("../lib/socket").SafeGameView })
     <div
       className={`px-3 py-1.5 rounded-full text-xs font-medium border ${
         yours
-          ? "bg-accent-dim text-accent border-accent/30"
+          ? "text-accent border-accent/30 bg-transparent"
           : "bg-ink-elevated text-fg-secondary border-ink-border"
       }`}
     >
@@ -696,7 +883,7 @@ function GuessColumn({
                 {g.code.split("").map((c, j) => (
                   <span
                     key={j}
-                    className={`inline-block w-8 h-8 grid place-items-center rounded-md font-mono text-base ${
+                    className={`w-8 h-8 grid place-items-center rounded-md font-mono text-base ${
                       hideCode
                         ? "bg-ink-elevated text-fg-muted"
                         : "bg-ink-elevated text-fg-primary"
@@ -854,9 +1041,9 @@ function modeLabel(m: Mode): string {
     case "vs_ai_staked":
       return "vs AI · staked";
     case "pvp_casual":
-      return "PvP · casual";
+      return "Multiplayer · casual";
     case "pvp_staked":
-      return "PvP · staked";
+      return "Multiplayer · staked";
   }
 }
 

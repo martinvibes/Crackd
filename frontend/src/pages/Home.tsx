@@ -426,38 +426,38 @@ function HowItPlays() {
   ];
 
   return (
-    <section className="relative max-w-[1280px] mx-auto px-6 md:px-10 py-24 md:py-32 border-t" style={{ borderColor: RULE }}>
-      <div className="grid grid-cols-12 gap-6 md:gap-10">
-        <aside className="col-span-12 md:col-span-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.7 }}
-          >
-            <div className="text-[10px] uppercase tracking-[0.3em] text-white/40">
-              §01
-            </div>
-            <h2
-              className="mt-4 font-semibold leading-[0.88] tracking-[-0.04em]"
-              style={{ fontSize: "clamp(40px, 5.5vw, 76px)" }}
-            >
-              Four digits.
-              <br />
-              <span style={{ color: HOT }}>One winner.</span>
-            </h2>
-            <p className="mt-5 max-w-sm text-white/65">
-              Three acts. Ten minutes. Settled by a smart contract instead of a
-              dispute form.
-            </p>
-          </motion.div>
-        </aside>
-
-        <div className="col-span-12 md:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {acts.map((a, i) => (
-            <ActCard key={a.tag} i={i} {...a} />
-          ))}
+    <section
+      className="relative max-w-[1280px] mx-auto px-6 md:px-10 py-24 md:py-32 border-t"
+      style={{ borderColor: RULE }}
+    >
+      {/* Centered intro */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.7 }}
+        className="max-w-3xl mx-auto text-center"
+      >
+        <div className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+          §01 · How it plays
         </div>
+        <h2
+          className="mt-5 font-semibold leading-[0.95] tracking-[-0.03em]"
+          style={{ fontSize: "clamp(44px, 6vw, 84px)" }}
+        >
+          Four digits. <span style={{ color: HOT }}>One winner.</span>
+        </h2>
+        <p className="mt-5 text-white/65 text-base md:text-lg max-w-xl mx-auto">
+          Three acts. Ten minutes. Settled by a smart contract instead of a
+          dispute form.
+        </p>
+      </motion.div>
+
+      {/* Three acts */}
+      <div className="mt-16 md:mt-20 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
+        {acts.map((a, i) => (
+          <ActCard key={a.tag} i={i} {...a} />
+        ))}
       </div>
     </section>
   );
@@ -480,27 +480,31 @@ function ActCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.75, delay: i * 0.1, ease: [0.2, 0.8, 0.2, 1] }}
-      className="relative p-7 rounded-sm"
+      className="group relative p-7 md:p-8 rounded-2xl flex flex-col h-full"
       style={{
-        background: i === 1 ? "rgba(255,0,168,0.06)" : "rgba(255,255,255,0.02)",
+        background:
+          i === 1 ? "rgba(255,0,168,0.06)" : "rgba(255,255,255,0.02)",
         border: `1px solid ${i === 1 ? "rgba(255,0,168,0.3)" : RULE}`,
       }}
     >
-      <div className="flex items-baseline justify-between">
-        <span className="text-[10px] uppercase tracking-[0.3em]" style={{ color: HOT }}>
-          {tag}
-        </span>
+      <div className="flex items-start justify-between">
         <span
-          className="text-5xl font-semibold leading-none"
-          style={{ color: "rgba(237,230,240,0.08)" }}
+          className="text-7xl md:text-8xl font-semibold leading-none tracking-[-0.04em]"
+          style={{ color: i === 1 ? HOT : "rgba(237,230,240,0.14)" }}
         >
           0{i + 1}
         </span>
+        <span
+          className="text-[10px] uppercase tracking-[0.3em] mt-3"
+          style={{ color: i === 1 ? HOT : "rgba(237,230,240,0.45)" }}
+        >
+          {tag}
+        </span>
       </div>
-      <h3 className="mt-10 text-3xl font-semibold tracking-[-0.02em] leading-tight">
+      <h3 className="mt-10 md:mt-12 text-2xl md:text-3xl font-semibold tracking-[-0.02em] leading-tight">
         {title}
       </h3>
-      <p className="mt-3 text-white/70 leading-relaxed">{body}</p>
+      <p className="mt-3 text-white/70 leading-relaxed text-[15px]">{body}</p>
     </motion.div>
   );
 }
@@ -539,13 +543,13 @@ function Modes() {
           />
           <ModeRow
             n="03"
-            title="pvp — casual"
+            title="Multiplayer — casual"
             desc="Invite a friend. No money, just the code."
             to="/play?mode=pvp_casual"
           />
           <ModeRow
             n="04"
-            title="pvp — staked"
+            title="Multiplayer — staked"
             desc="Both players escrow. Winner takes the pot minus 2.5% fee."
             to="/play?mode=pvp_staked"
             featured
@@ -616,7 +620,7 @@ function Marquee() {
     <section className="relative py-20 md:py-24 overflow-hidden border-t" style={{ borderColor: RULE }}>
       <div
         className="flex gap-10 whitespace-nowrap"
-        style={{ animation: "marquee 38s linear infinite" }}
+        style={{ animation: "marquee 20s linear infinite" }}
       >
         {[...words, ...words, ...words].map((w, i) => (
           <span
