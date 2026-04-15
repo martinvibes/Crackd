@@ -42,6 +42,7 @@ import { SetupPanel } from "../components/game/SetupPanel";
 import { LobbyPanel } from "../components/game/LobbyPanel";
 import { Board } from "../components/game/board/Board";
 import { FinishedPanel } from "../components/game/FinishedPanel";
+import { ChatDock } from "../components/game/ChatDock";
 
 type Stage =
   | "mode_pick"
@@ -218,32 +219,36 @@ export default function Game() {
       )}
 
       {(stage === "setting_codes" || stage === "active") && gameId && view && (
-        <Board
-          walletAddress={(address ?? view.youAre) as string}
-          view={view}
-          tauntLine={tauntLine}
-          onSetCode={(code) =>
-            emitSetCode({
-              gameId,
-              walletAddress: (address ?? view.youAre) as string,
-              code,
-            })
-          }
-          onGuess={(guess) =>
-            emitMakeGuess({
-              gameId,
-              walletAddress: (address ?? view.youAre) as string,
-              guess,
-            })
-          }
-          onSendChat={(message) =>
-            emitChat({
-              gameId,
-              walletAddress: (address ?? view.youAre) as string,
-              message,
-            })
-          }
-        />
+        <>
+          <Board
+            walletAddress={(address ?? view.youAre) as string}
+            view={view}
+            tauntLine={tauntLine}
+            onSetCode={(code) =>
+              emitSetCode({
+                gameId,
+                walletAddress: (address ?? view.youAre) as string,
+                code,
+              })
+            }
+            onGuess={(guess) =>
+              emitMakeGuess({
+                gameId,
+                walletAddress: (address ?? view.youAre) as string,
+                guess,
+              })
+            }
+          />
+          <ChatDock
+            onSend={(message) =>
+              emitChat({
+                gameId,
+                walletAddress: (address ?? view.youAre) as string,
+                message,
+              })
+            }
+          />
+        </>
       )}
 
       {stage === "finished" && finished && (
