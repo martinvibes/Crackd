@@ -8,12 +8,16 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Home owns its own nav + footer so its magenta palette doesn't collide with the shared Layout's. */}
+        <Route path="/" element={<Home />} />
+
+        {/* Play + Leaderboard keep the shared Layout for now. Phase 5 can restyle them to match Home's palette. */}
         <Route element={<Layout />}>
-          <Route path="/" element={<Home />} />
           <Route path="/play" element={<Game />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

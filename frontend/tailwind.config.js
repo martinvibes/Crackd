@@ -33,6 +33,23 @@ export default {
           DEFAULT: "#FF5C6A",
           dim: "rgba(255, 92, 106, 0.12)",
         },
+        // --- variant palettes (v1 editorial, v2 terminal, v3 reveal, v4 vault) ---
+        violet: {
+          deep: "#7C3AED", // v1 editorial — deep purple
+          soft: "#A78BFA",
+          mist: "#E9E2F5",
+          cream: "#F5F1E8",
+        },
+        magenta: {
+          hot: "#FF00A8", // v4 vault
+          plasma: "#E91E63", // v2 terminal
+          glow: "rgba(255, 0, 168, 0.4)",
+        },
+        lilac: {
+          DEFAULT: "#C4B5FD", // v3 reveal
+          soft: "#DDD6FE",
+          mist: "rgba(196, 181, 253, 0.15)",
+        },
       },
       fontFamily: {
         display: ['"Space Grotesk"', "system-ui", "sans-serif"],

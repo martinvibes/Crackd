@@ -1,75 +1,81 @@
 /**
- * Multi-wallet kit wrapper.
+ * Multi-wallet kit wrapper (v2.1 API — all static methods).
  *
- * `@creit.tech/stellar-wallets-kit` auto-detects installed wallets and
- * shows a modal. One call to `openWalletModal()` covers Freighter,
- * Albedo, xBull, Lobstr, Hana, and any newcomers.
- *
- * We default to testnet; a prod build flips via VITE_STELLAR_NETWORK.
+ * Supports Freighter, Albedo, xBull, Lobstr, Hana, Rabet out of the box.
+ * Users pick in the modal; we default nothing.
  */
 import {
+  Networks,
   StellarWalletsKit,
-  WalletNetwork,
-  allowAllModules,
-  FREIGHTER_ID,
 } from "@creit.tech/stellar-wallets-kit";
+import { FreighterModule } from "@creit.tech/stellar-wallets-kit/modules/freighter";
+import { AlbedoModule } from "@creit.tech/stellar-wallets-kit/modules/albedo";
+import { xBullModule } from "@creit.tech/stellar-wallets-kit/modules/xbull";
+import { LobstrModule } from "@creit.tech/stellar-wallets-kit/modules/lobstr";
+import { HanaModule } from "@creit.tech/stellar-wallets-kit/modules/hana";
+import { RabetModule } from "@creit.tech/stellar-wallets-kit/modules/rabet";
 
-const network: WalletNetwork =
+const network: Networks =
   (import.meta.env.VITE_STELLAR_NETWORK as string) === "mainnet"
-    ? WalletNetwork.PUBLIC
-    : WalletNetwork.TESTNET;
+    ? Networks.PUBLIC
+    : Networks.TESTNET;
 
-export const kit = new StellarWalletsKit({
-  network,
-  selectedWalletId: FREIGHTER_ID,
-  modules: allowAllModules(),
-});
-
-/**
- * Open the picker. Resolves with the selected wallet's public key.
- * Throws if the user dismisses.
- */
-export async function connectWallet(): Promise<string> {
-  let resolved = false;
-  return new Promise((resolve, reject) => {
-    kit
-      .openModal({
-        onWalletSelected: async (option) => {
-          try {
-            kit.setWallet(option.id);
-            const { address } = await kit.getAddress();
-            resolved = true;
-            resolve(address);
-          } catch (err) {
-            reject(err);
-          }
-        },
-        onClosed: () => {
-          if (!resolved) reject(new Error("wallet connect cancelled"));
-        },
-      })
-      .catch(reject);
+let initialised = false;
+function ensureInit() {
+  if (initialised) return;
+  StellarWalletsKit.init({
+    network,
+    modules: [
+      new FreighterModule(),
+      new AlbedoModule(),
+      new xBullModule(),
+      new LobstrModule(),
+      new HanaModule(),
+      new RabetModule(),
+    ],
   });
+  initialised = true;
 }
 
-/**
- * Signs a transaction XDR via the current wallet. The backend submits.
- */
+export const kit = {
+  async getAddress() {
+    ensureInit();
+    return await StellarWalletsKit.getAddress();
+  },
+  setWallet(id: string) {
+    ensureInit();
+    StellarWalletsKit.setWallet(id);
+  },
+  async disconnect() {
+    ensureInit();
+    await StellarWalletsKit.disconnect();
+  },
+  async signTransaction(xdr: string, opts: { networkPassphrase: string }) {
+    ensureInit();
+    return await StellarWalletsKit.signTransaction(xdr, opts);
+  },
+};
+
+export async function connectWallet(): Promise<string> {
+  ensureInit();
+  const { address } = await StellarWalletsKit.authModal();
+  return address;
+}
+
 export async function signTransaction(
   xdr: string,
 ): Promise<{ signedXdr: string; signerAddress: string }> {
-  const { signedTxXdr, signerAddress } = await kit.signTransaction(xdr, {
-    networkPassphrase:
-      network === WalletNetwork.PUBLIC
-        ? "Public Global Stellar Network ; September 2015"
-        : "Test SDF Network ; September 2015",
-  });
+  ensureInit();
+  const { signedTxXdr, signerAddress } = await StellarWalletsKit.signTransaction(
+    xdr,
+    { networkPassphrase },
+  );
   return { signedXdr: signedTxXdr, signerAddress: signerAddress ?? "" };
 }
 
 export const networkPassphrase =
-  network === WalletNetwork.PUBLIC
+  network === Networks.PUBLIC
     ? "Public Global Stellar Network ; September 2015"
     : "Test SDF Network ; September 2015";
 
-export const isTestnet = network === WalletNetwork.TESTNET;
+export const isTestnet = network === Networks.TESTNET;
