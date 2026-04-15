@@ -19,6 +19,7 @@ export function BoardHeader({
 }) {
   const yours = view.currentTurn === view.you && view.status === "active";
   const needsCode = view.status === "setting_codes";
+  const isAi = view.mode === "vs_ai_free" || view.mode === "vs_ai_staked";
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -41,9 +42,15 @@ export function BoardHeader({
             <>
               Make a <span className="text-accent">crack.</span>
             </>
+          ) : isAi ? (
+            <>
+              The Vault's{" "}
+              <span className="text-fg-secondary italic">thinking…</span>
+            </>
           ) : (
             <>
-              The Vault's <span className="text-fg-secondary italic">thinking…</span>
+              Opponent's{" "}
+              <span className="text-fg-secondary italic">thinking…</span>
             </>
           )}
         </div>

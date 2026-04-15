@@ -22,7 +22,6 @@ import type { Services } from "../services/services.js";
 import type {
   ClientToServerEvents,
   S2CGameOver,
-  S2CGuessResult,
   ServerToClientEvents,
   SocketData,
 } from "./events.js";
@@ -159,12 +158,13 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
       socket.data.gameIds.add(payload.gameId);
       socket.data.walletAddress = walletAddress;
 
-      const view = buildView(state, "playerTwo");
-      io.to(payload.gameId).emit("game_started", {
+      // Per-socket emit: each player gets a view from THEIR slot so
+      // their own code + correct opponent are rendered, and they don't
+      // accidentally see the other side's secret.
+      await emitPerSocketView(io, payload.gameId, state, "game_started", {
         gameId: payload.gameId,
         playerOne: state.playerOne,
         playerTwo: walletAddress,
-        view,
       });
       ack({ ok: true });
     } catch (err) {
@@ -258,15 +258,14 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
 
       await services.gameStore.save(state);
 
-      // Broadcast the human's guess to the room.
-      const guessEvent: S2CGuessResult = {
+      // Broadcast the guess, but with per-socket views so each player
+      // sees their own code + correct opponent info.
+      await emitPerSocketView(io, payload.gameId, state, "guess_result", {}, {
         guesser: slot,
         guess: payload.guess,
         result,
         nextTurn: state.currentTurn,
-        view: buildView(state, slot),
-      };
-      io.to(payload.gameId).emit("guess_result", guessEvent);
+      });
       ack({ ok: true });
 
       if (finished) {
@@ -350,6 +349,43 @@ function slotFor(state: GameState, wallet: string): PlayerSlot | null {
   if (state.playerOne === wallet) return "playerOne";
   if (state.playerTwo === wallet) return "playerTwo";
   return null;
+}
+
+/**
+ * Emit an event to every socket in the game room, but with a per-slot
+ * `view` so each player only sees their own code + their own opponent.
+ * Broadcasting a single view to the whole room leaks secrets and
+ * desyncs the non-acting player's UI.
+ *
+ * `extra` is merged into the payload; the `view` field is injected
+ * per-socket.
+ */
+async function emitPerSocketView<TExtra extends Record<string, unknown>>(
+  io: CrackdServer,
+  gameId: string,
+  state: GameState,
+  event: "game_started" | "guess_result",
+  extra: TExtra,
+  guessMeta?: {
+    guesser: PlayerSlot;
+    guess: string;
+    result: { pots: number; pans: number };
+    nextTurn: PlayerSlot;
+  },
+): Promise<void> {
+  const sockets = await io.in(gameId).fetchSockets();
+  for (const s of sockets) {
+    const wallet = s.data.walletAddress;
+    if (!wallet) continue;
+    const theirSlot = slotFor(state, wallet);
+    if (!theirSlot) continue;
+    const view = buildView(state, theirSlot);
+    if (event === "guess_result" && guessMeta) {
+      s.emit("guess_result", { ...guessMeta, view });
+    } else {
+      s.emit(event, { ...extra, view } as never);
+    }
+  }
 }
 
 async function secretForOpponent(
@@ -500,12 +536,11 @@ async function takeAiTurn(
 
   await services.gameStore.save(state);
 
-  io.to(state.gameId).emit("guess_result", {
+  await emitPerSocketView(io, state.gameId, state, "guess_result", {}, {
     guesser: "playerTwo",
     guess: aiGuess,
     result,
     nextTurn: state.currentTurn,
-    view: buildView(state, "playerOne"),
   });
 
   // Optional taunt (fire-and-forget).
