@@ -76,4 +76,19 @@ export class GameStateStore {
   async clearActiveGame(walletAddress: string): Promise<void> {
     await this.redis.del(this.activeKey(walletAddress));
   }
+
+  /**
+   * Monotonic u32 session-id minter for Stellar Game Studio Hub calls.
+   * Wraps back to 1 if it ever exceeds u32::MAX — extremely unlikely but
+   * keeps the value in range.
+   */
+  async nextHubSessionId(): Promise<number> {
+    const n = await this.redis.incr("crackd:hub:session_seq");
+    const MAX_U32 = 0xffff_ffff;
+    if (n > MAX_U32) {
+      await this.redis.set("crackd:hub:session_seq", 1);
+      return 1;
+    }
+    return n;
+  }
 }

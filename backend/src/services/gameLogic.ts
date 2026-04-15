@@ -175,7 +175,9 @@ export function createInitialState(params: {
   mode: GameState["mode"];
   playerOne: string;
   stakeAmount?: number;
+  stakeAsset?: string;
   contractGameId?: string | null;
+  hubSessionId?: number | null;
   maxGuesses?: number;
 }): GameState {
   const now = Date.now();
@@ -191,7 +193,9 @@ export function createInitialState(params: {
     winner: null,
     isDraw: false,
     stakeAmount: params.stakeAmount ?? 0,
+    stakeAsset: params.stakeAsset,
     contractGameId: params.contractGameId ?? null,
+    hubSessionId: params.hubSessionId ?? null,
     maxGuesses: params.maxGuesses ?? DEFAULT_MAX_GUESSES,
     createdAt: now,
     updatedAt: now,

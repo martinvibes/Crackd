@@ -47,6 +47,15 @@ const schema = z.object({
   SUPPORTED_ASSETS: z.string().default("XLM,USDC"),
   CRACKD_VAULT_ID: z.string().startsWith("C").length(56),
   CRACKD_DUEL_ID: z.string().startsWith("C").length(56),
+  GAME_HUB_ID: z
+    .string()
+    .startsWith("C")
+    .length(56)
+    .default("CB4VZAT2U3UC6XFK3N23SKRF2NDCMP3QHJYMCHHFMZO7MRQO6DQ2EMYG"),
+  GAME_HUB_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
 
   ANTHROPIC_API_KEY: z.string().min(1),
   CLAUDE_MODEL: z.string().default("claude-sonnet-4-6"),

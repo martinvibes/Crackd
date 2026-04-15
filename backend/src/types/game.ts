@@ -42,7 +42,9 @@ export interface GameState {
   isDraw: boolean;
 
   stakeAmount: number;        // stroops; 0 for free/casual
+  stakeAsset?: string;        // "XLM" | "USDC" | undefined (for free games)
   contractGameId: string | null; // BytesN<32> hex for on-chain duel; null otherwise
+  hubSessionId: number | null;   // u32 id reported to Stellar Game Studio Hub for PvP
 
   maxGuesses: number;         // hard ceiling, default 10
 

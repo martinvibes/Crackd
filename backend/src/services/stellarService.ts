@@ -59,6 +59,9 @@ export class StellarService {
   private readonly admin: Keypair;
   private readonly vault: Contract;
   private readonly duel: Contract;
+  private readonly hub: Contract;
+  private readonly hubEnabled: boolean;
+  private readonly duelContractAddress: string;
   private readonly baseFee = "1000000";
 
   constructor(
@@ -74,6 +77,9 @@ export class StellarService {
     this.admin = Keypair.fromSecret(cfg.ADMIN_SECRET_KEY);
     this.vault = new Contract(cfg.CRACKD_VAULT_ID);
     this.duel = new Contract(cfg.CRACKD_DUEL_ID);
+    this.duelContractAddress = cfg.CRACKD_DUEL_ID;
+    this.hub = new Contract(cfg.GAME_HUB_ID);
+    this.hubEnabled = cfg.GAME_HUB_ENABLED;
   }
 
   private tokenScVal(asset: AssetSymbol): xdr.ScVal {
@@ -233,6 +239,69 @@ export class StellarService {
       nativeToScVal(idBytes, { type: "bytes" }),
     ]);
     return txHash;
+  }
+
+  // ---------- Stellar Game Studio Hub integration ----------
+  //
+  // Required by the GameFi track: PvP matches are reported to the shared
+  // ecosystem Hub contract so our games count toward ecosystem stats.
+  //
+  // Best-effort on purpose: Hub failures must not block our own escrow
+  // settlement. Every call logs and swallows errors.
+
+  /**
+   * Call `start_game` on the Hub. Returns true on success.
+   *
+   * Hub signature:
+   *   start_game(env, game_id: Address, session_id: u32,
+   *              player1: Address, player2: Address,
+   *              player1_points: i128, player2_points: i128)
+   *
+   * `game_id` is the address of the game contract itself (CrackdDuel).
+   */
+  async hubStartGame(
+    sessionId: number,
+    player1: string,
+    player2: string,
+  ): Promise<boolean> {
+    if (!this.hubEnabled) return false;
+    try {
+      await this.invokeAsAdmin(this.hub, "start_game", [
+        Address.fromString(this.duelContractAddress).toScVal(),
+        nativeToScVal(sessionId, { type: "u32" }),
+        Address.fromString(player1).toScVal(),
+        Address.fromString(player2).toScVal(),
+        nativeToScVal(0n, { type: "i128" }),
+        nativeToScVal(0n, { type: "i128" }),
+      ]);
+      logger.info({ sessionId, player1, player2 }, "hub.start_game ok");
+      return true;
+    } catch (err) {
+      logger.warn({ err, sessionId }, "hub.start_game failed (best-effort)");
+      return false;
+    }
+  }
+
+  /**
+   * Call `end_game(session_id, player1_won)`. Returns true on success.
+   * `player1Won` is `true` when player one won; for a draw, we still call
+   * with a best-effort convention (Hub has no native draw state — we
+   * record it as a "player1 lost" in that case and let ecosystem rank
+   * interpret).
+   */
+  async hubEndGame(sessionId: number, player1Won: boolean): Promise<boolean> {
+    if (!this.hubEnabled) return false;
+    try {
+      await this.invokeAsAdmin(this.hub, "end_game", [
+        nativeToScVal(sessionId, { type: "u32" }),
+        nativeToScVal(player1Won, { type: "bool" }),
+      ]);
+      logger.info({ sessionId, player1Won }, "hub.end_game ok");
+      return true;
+    } catch (err) {
+      logger.warn({ err, sessionId }, "hub.end_game failed (best-effort)");
+      return false;
+    }
   }
 
   // ---------- Player-submitted (pre-signed by wallet) ----------
