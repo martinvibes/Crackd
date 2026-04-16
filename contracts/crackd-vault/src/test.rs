@@ -107,12 +107,12 @@ fn resolve_win_only_pays_from_target_asset_pool() {
     let stake = 10 * STROOPS;
     h.vault.stake(&p, &h.xlm.id, &stake);
     let bonus = h.vault.resolve_win(&p, &h.xlm.id, &stake, &3u32);
-    assert_eq!(bonus, 20 * STROOPS);
+    assert_eq!(bonus, 15 * STROOPS);
 
     // USDC pool untouched
     assert_eq!(h.vault.get_pool_balance(&h.usdc.id), 100 * STROOPS);
-    // XLM pool: 100 + 10 stake - 10 stake returned - 20 bonus = 80
-    assert_eq!(h.vault.get_pool_balance(&h.xlm.id), 80 * STROOPS);
+    // XLM pool: 100 + 10 stake - 10 stake returned - 15 bonus = 85
+    assert_eq!(h.vault.get_pool_balance(&h.xlm.id), 85 * STROOPS);
 }
 
 #[test]
@@ -146,13 +146,13 @@ fn per_asset_earnings_recorded_separately() {
     h.vault.admin_deposit(&h.usdc.id, &(100 * STROOPS));
 
     h.vault.stake(&p, &h.xlm.id, &(10 * STROOPS));
-    h.vault.resolve_win(&p, &h.xlm.id, &(10 * STROOPS), &3u32); // +20 XLM
+    h.vault.resolve_win(&p, &h.xlm.id, &(10 * STROOPS), &3u32); // +15 XLM
     h.vault.stake(&p, &h.usdc.id, &(10 * STROOPS));
-    h.vault.resolve_win(&p, &h.usdc.id, &(10 * STROOPS), &5u32); // +15 USDC
+    h.vault.resolve_win(&p, &h.usdc.id, &(10 * STROOPS), &5u32); // +12.5 USDC
 
     let earnings = h.vault.get_player_earnings(&p);
-    assert_eq!(earnings.get(h.xlm.id.clone()).unwrap_or(0), 20 * STROOPS);
-    assert_eq!(earnings.get(h.usdc.id.clone()).unwrap_or(0), 15 * STROOPS);
+    assert_eq!(earnings.get(h.xlm.id.clone()).unwrap_or(0), 15 * STROOPS);
+    assert_eq!(earnings.get(h.usdc.id.clone()).unwrap_or(0), 125_000_000);
 
     // Unified gameplay stats: 2 wins total across assets
     let s = h.vault.get_player_stats(&p);
@@ -174,10 +174,10 @@ fn leaderboards_are_per_asset() {
 
     // Alice dominates XLM
     h.vault.stake(&alice, &h.xlm.id, &(10 * STROOPS));
-    h.vault.resolve_win(&alice, &h.xlm.id, &(10 * STROOPS), &3u32); // +20
+    h.vault.resolve_win(&alice, &h.xlm.id, &(10 * STROOPS), &3u32); // +15
     // Bob dominates USDC
     h.vault.stake(&bob, &h.usdc.id, &(10 * STROOPS));
-    h.vault.resolve_win(&bob, &h.usdc.id, &(10 * STROOPS), &3u32); // +20
+    h.vault.resolve_win(&bob, &h.usdc.id, &(10 * STROOPS), &3u32); // +15
 
     let xlm_lb = h.vault.get_leaderboard(&h.xlm.id);
     assert_eq!(xlm_lb.len(), 1);
@@ -191,34 +191,34 @@ fn leaderboards_are_per_asset() {
 // ------------------------------ single-asset behaviors (XLM) ------------------------------
 
 #[test]
-fn resolve_win_3_guesses_pays_2x_bonus() {
+fn resolve_win_3_guesses_pays_1_5x_bonus() {
     let h = setup();
     fund(&h.xlm, &h.admin, 100 * STROOPS);
     h.vault.admin_deposit(&h.xlm.id, &(100 * STROOPS));
     let p = new_player(&h, 50 * STROOPS);
     h.vault.stake(&p, &h.xlm.id, &(10 * STROOPS));
     let bonus = h.vault.resolve_win(&p, &h.xlm.id, &(10 * STROOPS), &3u32);
-    assert_eq!(bonus, 20 * STROOPS);
+    assert_eq!(bonus, 15 * STROOPS);
 }
 
 #[test]
-fn resolve_win_5_guesses_pays_1_5x() {
+fn resolve_win_5_guesses_pays_1_25x() {
     let h = setup();
     fund(&h.xlm, &h.admin, 100 * STROOPS);
     h.vault.admin_deposit(&h.xlm.id, &(100 * STROOPS));
     let p = new_player(&h, 50 * STROOPS);
     h.vault.stake(&p, &h.xlm.id, &(10 * STROOPS));
-    assert_eq!(h.vault.resolve_win(&p, &h.xlm.id, &(10 * STROOPS), &5u32), 15 * STROOPS);
+    assert_eq!(h.vault.resolve_win(&p, &h.xlm.id, &(10 * STROOPS), &5u32), 125_000_000);
 }
 
 #[test]
-fn resolve_win_9_guesses_pays_0_75x() {
+fn resolve_win_9_guesses_pays_1x() {
     let h = setup();
     fund(&h.xlm, &h.admin, 400 * STROOPS);
     h.vault.admin_deposit(&h.xlm.id, &(400 * STROOPS));
     let p = new_player(&h, 50 * STROOPS);
     h.vault.stake(&p, &h.xlm.id, &(10 * STROOPS));
-    assert_eq!(h.vault.resolve_win(&p, &h.xlm.id, &(10 * STROOPS), &9u32), 75_000_000);
+    assert_eq!(h.vault.resolve_win(&p, &h.xlm.id, &(10 * STROOPS), &9u32), 100_000_000);
 }
 
 #[test]
@@ -316,9 +316,9 @@ fn daily_remaining_reflects_winnings() {
     let p = new_player(&h, 1_000 * STROOPS);
     assert_eq!(h.vault.get_daily_remaining(&p, &h.xlm.id), 100 * STROOPS);
     h.vault.stake(&p, &h.xlm.id, &(10 * STROOPS));
-    h.vault.resolve_win(&p, &h.xlm.id, &(10 * STROOPS), &3u32); // bonus 20
-    // Pool after = 400 + 10 - 10 - 20 = 380. Cap = 95. Won = 20 → 75.
-    assert_eq!(h.vault.get_daily_remaining(&p, &h.xlm.id), 75 * STROOPS);
+    h.vault.resolve_win(&p, &h.xlm.id, &(10 * STROOPS), &3u32); // bonus 15
+    // Pool after = 400 + 10 - 10 - 15 = 385. Cap = 385/4 = 96.25 XLM = 962_500_000. Won = 15 → 81.25 XLM.
+    assert_eq!(h.vault.get_daily_remaining(&p, &h.xlm.id), 812_500_000);
 }
 
 // ------------------------------ input guards ------------------------------

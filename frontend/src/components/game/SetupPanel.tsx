@@ -15,17 +15,22 @@ const STAKE_PRESETS = [1, 5, 10, 25] as const;
  * Reward multiplier tiers — kept in sync with the on-chain rewards.rs
  * in crackd-vault. If the contract changes, update here too.
  */
+/**
+ * Reward tiers — kept in sync with crackd-vault rewards.rs.
+ * Every winner gets at least 2× total (1.0× bonus). Fast crackers
+ * get a small speed bonus on top. Nobody is punished for winning.
+ *
+ * "factor" = bonus multiplier. Total return = stake + stake × factor.
+ */
 const MULTIPLIER_TIERS: Array<{
   label: string;
   range: string;
   factor: number;
-  minGuesses: number;
-  maxGuesses: number;
+  total: string;
 }> = [
-  { label: "Lightning", range: "1–3", factor: 2.0, minGuesses: 1, maxGuesses: 3 },
-  { label: "Sharp", range: "4–5", factor: 1.5, minGuesses: 4, maxGuesses: 5 },
-  { label: "Par", range: "6–7", factor: 1.0, minGuesses: 6, maxGuesses: 7 },
-  { label: "Lucky", range: "8+", factor: 0.75, minGuesses: 8, maxGuesses: 99 },
+  { label: "Lightning", range: "1–3", factor: 1.5, total: "2.5×" },
+  { label: "Sharp", range: "4–5", factor: 1.25, total: "2.25×" },
+  { label: "Base win", range: "6+", factor: 1.0, total: "2×" },
 ];
 
 export function SetupPanel({
@@ -55,8 +60,8 @@ export function SetupPanel({
   const isStaked = mode === "vs_ai_staked" || mode === "pvp_staked";
   const canJoin = mode === "pvp_casual" || mode === "pvp_staked";
 
-  // Best-case bonus preview (assumes cracking in the top tier → 2.0×).
-  const bestBonus = useMemo(() => stake * 2, [stake]);
+  // Best-case bonus preview (top tier = 1.5× bonus → total 2.5× stake).
+  const bestBonus = useMemo(() => stake * 1.5, [stake]);
 
   return (
     <div className="animate-fade-in">
@@ -309,35 +314,37 @@ function MultiplierTiers({ stake }: { stake: number }) {
     <div className="mt-5 rounded-xl border border-ink-border bg-ink/50 p-3.5">
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-[0.24em] text-fg-muted">
-          Reward per speed
+          Reward tiers
         </span>
         <span className="text-[10px] uppercase tracking-[0.24em] text-fg-muted">
-          If you stake {stake}
+          {stake} staked
         </span>
       </div>
-      <div className="mt-2.5 grid grid-cols-4 gap-1.5">
+      <div className="mt-2.5 grid grid-cols-3 gap-1.5">
         {MULTIPLIER_TIERS.map((t, i) => {
-          const payout = +(stake * t.factor).toFixed(2);
+          const totalReturn = +(stake * (1 + t.factor)).toFixed(2);
           const isTop = i === 0;
           return (
             <div
               key={t.range}
               className={`rounded-lg px-2 py-2 border text-center ${
-                isTop ? "bg-accent/10 border-accent/30" : "bg-ink-elevated border-ink-border"
+                isTop
+                  ? "bg-accent/10 border-accent/30"
+                  : "bg-ink-elevated border-ink-border"
               }`}
             >
               <div className="text-[9px] uppercase tracking-[0.22em] text-fg-muted">
-                {t.range}
+                {t.range} guesses
               </div>
               <div
                 className={`mt-1 text-sm font-semibold tabular-nums ${
                   isTop ? "text-accent" : "text-fg-primary"
                 }`}
               >
-                {t.factor}×
+                {t.total}
               </div>
               <div className="text-[10px] text-fg-muted tabular-nums mt-0.5">
-                +{payout}
+                = {totalReturn} {" "}back
               </div>
             </div>
           );

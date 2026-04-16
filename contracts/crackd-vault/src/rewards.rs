@@ -1,19 +1,22 @@
 //! Pure reward + daily-cap math. No storage, no env — trivially unit-testable.
 
 /// Reward multiplier (basis points) based on number of guesses used by the
-/// winning player. 10_000 bps = 1.00x.
+/// winning player. 10_000 bps = 1.00× bonus.
 ///
-/// 1–3 guesses → 2.00x
-/// 4–5         → 1.50x
-/// 6–7         → 1.00x
-/// 8+          → 0.75x
+/// Philosophy: every winner AT LEAST doubles their stake (1.0× bonus).
+/// Fast crackers get a small extra bonus, but nobody is punished for
+/// winning "slowly". Winning is winning.
+///
+/// Total payout = stake + (stake × multiplier / 10_000):
+///   1–3 guesses → 1.50× bonus → 2.50× total
+///   4–5         → 1.25× bonus → 2.25× total
+///   6+          → 1.00× bonus → 2.00× total
 pub fn multiplier_bps(guesses_used: u32) -> i128 {
     match guesses_used {
         0 => 0, // invalid — caller should reject before reaching here
-        1..=3 => 20_000,
-        4..=5 => 15_000,
-        6..=7 => 10_000,
-        _ => 7_500,
+        1..=3 => 15_000,
+        4..=5 => 12_500,
+        _ => 10_000,
     }
 }
 
@@ -51,24 +54,24 @@ mod tests {
 
     #[test]
     fn multiplier_tiers() {
-        assert_eq!(multiplier_bps(1), 20_000);
-        assert_eq!(multiplier_bps(3), 20_000);
-        assert_eq!(multiplier_bps(4), 15_000);
-        assert_eq!(multiplier_bps(5), 15_000);
+        assert_eq!(multiplier_bps(1), 15_000);
+        assert_eq!(multiplier_bps(3), 15_000);
+        assert_eq!(multiplier_bps(4), 12_500);
+        assert_eq!(multiplier_bps(5), 12_500);
         assert_eq!(multiplier_bps(6), 10_000);
         assert_eq!(multiplier_bps(7), 10_000);
-        assert_eq!(multiplier_bps(8), 7_500);
-        assert_eq!(multiplier_bps(100), 7_500);
+        assert_eq!(multiplier_bps(8), 10_000);
+        assert_eq!(multiplier_bps(100), 10_000);
     }
 
     #[test]
     fn gross_payout_math() {
-        // 10 XLM stake, cracked in 3 → 2x → 20 XLM
-        assert_eq!(gross_payout(100_000_000, 3), 200_000_000);
-        // 10 XLM stake, 5 guesses → 1.5x → 15 XLM
-        assert_eq!(gross_payout(100_000_000, 5), 150_000_000);
-        // 10 XLM stake, 9 guesses → 0.75x → 7.5 XLM
-        assert_eq!(gross_payout(100_000_000, 9), 75_000_000);
+        // 10 XLM stake, cracked in 3 → 1.5× bonus → 15 XLM
+        assert_eq!(gross_payout(100_000_000, 3), 150_000_000);
+        // 10 XLM stake, 5 guesses → 1.25× bonus → 12.5 XLM
+        assert_eq!(gross_payout(100_000_000, 5), 125_000_000);
+        // 10 XLM stake, 9 guesses → 1.0× bonus → 10 XLM
+        assert_eq!(gross_payout(100_000_000, 9), 100_000_000);
     }
 
     #[test]

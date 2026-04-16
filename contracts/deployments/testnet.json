@@ -23,8 +23,8 @@
   },
   "contracts": {
     "crackd_vault": {
-      "id": "CAOBL4NDX2MELQHF7HOVDPG7Z5JAGIJCMYSBZRXJ42OMRKIZNLEYJU3E",
-      "explorer": "https://stellar.expert/explorer/testnet/contract/CAOBL4NDX2MELQHF7HOVDPG7Z5JAGIJCMYSBZRXJ42OMRKIZNLEYJU3E",
+      "id": "CAFRPUU36IQQJX5O6X4XTYWQI2X7N5WXK37HUSOA256IEYDDVJGVVTHQ",
+      "explorer": "https://stellar.expert/explorer/testnet/contract/CAFRPUU36IQQJX5O6X4XTYWQI2X7N5WXK37HUSOA256IEYDDVJGVVTHQ",
       "init_tx": "fe472390705e22153bbd046e7e3f933ff394b32c8bffc5ebb4d6e995af77de9d",
       "deployed_at": "2026-04-14",
       "multi_asset": true

@@ -660,7 +660,7 @@ function Footer() {
           <Link to="/play" className="hover:text-white">Play</Link>
           <Link to="/leaderboard" className="hover:text-white">Winners</Link>
           <a
-            href="https://stellar.expert/explorer/testnet/contract/CAOBL4NDX2MELQHF7HOVDPG7Z5JAGIJCMYSBZRXJ42OMRKIZNLEYJU3E"
+            href="https://stellar.expert/explorer/testnet/contract/CAFRPUU36IQQJX5O6X4XTYWQI2X7N5WXK37HUSOA256IEYDDVJGVVTHQ"
             target="_blank"
             rel="noreferrer"
             className="hover:text-white"

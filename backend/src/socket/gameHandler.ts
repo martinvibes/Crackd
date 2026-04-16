@@ -485,12 +485,15 @@ async function resolveFinished(
     isDraw: outcome.isDraw,
     contractGameId: state.contractGameId,
     ...(payoutTxHash ? { payoutTxHash } : {}),
-    ...(payoutStroops !== undefined
+    // Always send stake info so the finished screen can show it on loss too.
+    ...(state.stakeAmount && state.stakeAmount > 0
       ? {
-          payoutAmount: Number(payoutStroops) / 10_000_000,
+          stakeAmount: state.stakeAmount / 10_000_000,
           payoutAsset: state.stakeAsset,
-          stakeAmount: (state.stakeAmount ?? 0) / 10_000_000,
         }
+      : {}),
+    ...(payoutStroops !== undefined
+      ? { payoutAmount: Number(payoutStroops) / 10_000_000 }
       : {}),
     final: {
       playerOneCode: state.playerOneCode ?? "",

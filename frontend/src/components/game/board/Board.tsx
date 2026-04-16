@@ -72,6 +72,15 @@ export function Board({
         tauntLine={tauntLine}
       />
 
+      {/* Stake info bar — only for staked games */}
+      {(view.mode === "vs_ai_staked" || view.mode === "pvp_staked") &&
+        view.stakeAmount > 0 && (
+          <StakeBar
+            stakeAmount={view.stakeAmount}
+            guessCount={view.yourGuesses.length}
+          />
+        )}
+
       {/* Scrolling timeline */}
       <div
         ref={scrollerRef}
@@ -109,6 +118,63 @@ export function Board({
           onSubmit={submit}
           error={error}
         />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Persistent strip during staked games showing what's on the line +
+ * the current reward tier based on guesses used so far.
+ */
+function StakeBar({
+  stakeAmount,
+  guessCount,
+}: {
+  stakeAmount: number;
+  guessCount: number;
+}) {
+  const xlm = stakeAmount / 10_000_000;
+  // Current tier based on guesses so far (next guess = guessCount + 1).
+  const nextGuess = guessCount + 1;
+  const tier =
+    nextGuess <= 3
+      ? { label: "2.5×", desc: "Lightning" }
+      : nextGuess <= 5
+        ? { label: "2.25×", desc: "Sharp" }
+        : { label: "2×", desc: "Base win" };
+  const potentialWin = xlm * (nextGuess <= 3 ? 2.5 : nextGuess <= 5 ? 2.25 : 2.0);
+
+  return (
+    <div className="mt-4 max-w-2xl mx-auto">
+      <div
+        className="flex items-center justify-between gap-4 px-4 py-2.5 rounded-xl border text-sm"
+        style={{
+          background: "rgba(255,0,168,0.04)",
+          borderColor: "rgba(255,0,168,0.2)",
+        }}
+      >
+        <div className="flex items-center gap-2 text-fg-secondary">
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ background: "#FF00A8" }}
+          />
+          <span>
+            Staked <span className="text-fg-primary font-mono">{xlm}</span> XLM
+          </span>
+        </div>
+        <div className="flex items-center gap-3 text-fg-secondary">
+          <span className="hidden sm:inline text-[10px] uppercase tracking-[0.22em] text-fg-muted">
+            {tier.desc}
+          </span>
+          <span style={{ color: "#FF00A8" }} className="font-semibold">
+            {tier.label}
+          </span>
+          <span className="text-fg-muted">→</span>
+          <span className="text-fg-primary font-mono">
+            {potentialWin.toFixed(1)} XLM
+          </span>
+        </div>
       </div>
     </div>
   );

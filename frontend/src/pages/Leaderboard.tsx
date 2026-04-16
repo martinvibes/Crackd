@@ -44,7 +44,7 @@ export default function Leaderboard() {
           Every entry is read straight from the CrackdVault contract. No
           database, no cache. Verifiable on{" "}
           <a
-            href="https://stellar.expert/explorer/testnet/contract/CAOBL4NDX2MELQHF7HOVDPG7Z5JAGIJCMYSBZRXJ42OMRKIZNLEYJU3E"
+            href="https://stellar.expert/explorer/testnet/contract/CAFRPUU36IQQJX5O6X4XTYWQI2X7N5WXK37HUSOA256IEYDDVJGVVTHQ"
             target="_blank"
             rel="noreferrer"
             className="text-fg-primary underline underline-offset-4 decoration-accent/50 hover:decoration-accent"

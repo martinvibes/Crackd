@@ -143,6 +143,35 @@ export function FinishedPanel({
         />
       )}
 
+      {/* Staked loss: your stake stays in the pool */}
+      {lost && finished.stakeAmount !== undefined && finished.stakeAmount > 0 && (
+        <div
+          className="mt-10 rounded-xl px-5 py-4 border text-center text-sm"
+          style={{
+            background: "rgba(255,92,106,0.04)",
+            borderColor: "rgba(255,92,106,0.2)",
+          }}
+        >
+          <span className="text-fg-secondary">
+            Your{" "}
+            <span className="text-fg-primary font-mono">
+              {finished.stakeAmount.toFixed(2)} {finished.payoutAsset ?? "XLM"}
+            </span>{" "}
+            stake stays in the vault pool.
+          </span>
+          <div className="mt-2">
+            <a
+              href="https://stellar.expert/explorer/testnet/contract/CAFRPUU36IQQJX5O6X4XTYWQI2X7N5WXK37HUSOA256IEYDDVJGVVTHQ"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-fg-muted hover:text-fg-primary underline underline-offset-4"
+            >
+              View vault contract on explorer ↗
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Non-win settlement link (draw refund, PvP loss settlement) */}
       {finished.payoutTxHash &&
         !(won && finished.payoutAmount !== undefined && finished.payoutAmount > 0) && (
@@ -201,12 +230,10 @@ function StatsStrip({
 }) {
   const multiplier =
     yourGuesses <= 3
-      ? "2.0×"
+      ? "2.5×"
       : yourGuesses <= 5
-        ? "1.5×"
-        : yourGuesses <= 7
-          ? "1.0×"
-          : "0.75×";
+        ? "2.25×"
+        : "2.0×";
 
   return (
     <motion.div
