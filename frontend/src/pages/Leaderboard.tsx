@@ -14,20 +14,30 @@ import { shortAddress } from "../lib/stellar";
 
 const MAGENTA = "#FF00A8";
 
+type Tab = "earners" | "all";
+
 export default function Leaderboard() {
   const assetsQ = useQuery({ queryKey: ["assets"], queryFn: () => api.assets() });
   const [asset, setAsset] = useState<string>("XLM");
+  const [tab, setTab] = useState<Tab>("earners");
 
   const lbQ = useQuery({
     queryKey: ["leaderboard", asset],
     queryFn: () => api.leaderboard(asset),
-    enabled: !!asset,
+    enabled: tab === "earners",
     refetchInterval: 60_000,
+  });
+  const allQ = useQuery({
+    queryKey: ["leaderboard-all"],
+    queryFn: () => api.leaderboardAll(),
+    enabled: tab === "all",
+    refetchInterval: 30_000,
   });
 
   const rows = lbQ.data?.leaderboard ?? [];
   const top3 = rows.slice(0, 3);
   const rest = rows.slice(3, 10);
+  const allRows = allQ.data?.leaderboard ?? [];
 
   return (
     <div className="max-w-4xl mx-auto px-5 md:px-8 py-10 md:py-16">
@@ -35,52 +45,87 @@ export default function Leaderboard() {
       <div>
         <div className="text-[11px] uppercase tracking-[0.22em] text-fg-muted inline-flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-          On-chain leaderboard
+          Leaderboard
         </div>
         <h1 className="mt-3 text-3xl md:text-5xl font-semibold tracking-[-0.03em] leading-tight">
           The wall of <span className="text-accent">winners.</span>
         </h1>
         <p className="mt-3 text-sm md:text-base text-fg-secondary max-w-xl">
-          Every entry is read straight from the CrackdVault contract. No
-          database, no cache. Verifiable on{" "}
-          <a
-            href="https://stellar.expert/explorer/testnet/contract/CAFRPUU36IQQJX5O6X4XTYWQI2X7N5WXK37HUSOA256IEYDDVJGVVTHQ"
-            target="_blank"
-            rel="noreferrer"
-            className="text-fg-primary underline underline-offset-4 decoration-accent/50 hover:decoration-accent"
-          >
-            Stellar Expert ↗
-          </a>
-          .
+          {tab === "earners"
+            ? "On-chain rankings. Verified against the CrackdVault contract."
+            : "All players across every mode — staked, casual, free."}
         </p>
       </div>
 
-      {/* Asset tabs */}
+      {/* Main tabs: Earners vs All Players */}
       <div className="mt-8 md:mt-10 inline-flex items-center p-1 bg-ink-raised border border-ink-border rounded-xl">
-        {assetsQ.data?.assets.map((a) => (
-          <button
-            key={a.symbol}
-            onClick={() => setAsset(a.symbol)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              asset === a.symbol
-                ? "bg-accent text-ink"
-                : "text-fg-secondary hover:text-fg-primary"
-            }`}
-          >
-            {a.symbol}
-          </button>
-        ))}
+        <button
+          onClick={() => setTab("earners")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            tab === "earners"
+              ? "bg-accent text-ink"
+              : "text-fg-secondary hover:text-fg-primary"
+          }`}
+        >
+          Earners
+        </button>
+        <button
+          onClick={() => setTab("all")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            tab === "all"
+              ? "bg-accent text-ink"
+              : "text-fg-secondary hover:text-fg-primary"
+          }`}
+        >
+          Most wins
+        </button>
       </div>
 
-      {/* Content */}
-      {lbQ.isLoading ? (
-        <LoadingSkeleton />
-      ) : rows.length === 0 ? (
-        <EmptyState asset={asset} />
-      ) : (
+      {/* Asset sub-filter — only for the on-chain earners tab */}
+      {tab === "earners" && (
+        <div className="mt-4 inline-flex items-center gap-2">
+          {assetsQ.data?.assets.map((a) => (
+            <button
+              key={a.symbol}
+              onClick={() => setAsset(a.symbol)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                asset === a.symbol
+                  ? "bg-accent/15 border-accent/40 text-accent"
+                  : "bg-ink-elevated border-ink-border text-fg-secondary hover:text-fg-primary"
+              }`}
+            >
+              {a.symbol}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Content — Earners tab */}
+      {tab === "earners" && (
         <>
-          <Podium rows={top3} asset={asset} />
-          {rest.length > 0 && <Table rows={rest} asset={asset} />}
+          {lbQ.isLoading ? (
+            <LoadingSkeleton />
+          ) : rows.length === 0 ? (
+            <EmptyState asset={asset} />
+          ) : (
+            <>
+              <Podium rows={top3} asset={asset} />
+              {rest.length > 0 && <Table rows={rest} asset={asset} />}
+            </>
+          )}
+        </>
+      )}
+
+      {/* Content — All Players tab */}
+      {tab === "all" && (
+        <>
+          {allQ.isLoading ? (
+            <LoadingSkeleton />
+          ) : allRows.length === 0 ? (
+            <EmptyState asset="any mode" />
+          ) : (
+            <AllPlayersTable rows={allRows} />
+          )}
         </>
       )}
     </div>
@@ -300,6 +345,100 @@ function TableRow({ row, asset }: { row: LeaderboardRow; asset: string }) {
 // ============================================================
 // Empty + loading states
 // ============================================================
+
+// ============================================================
+// All-Players table — backend-tracked, every mode
+// ============================================================
+
+function AllPlayersTable({
+  rows,
+}: {
+  rows: Array<{
+    rank: number;
+    player: string;
+    wins: number;
+    losses: number;
+    gamesPlayed: number;
+  }>;
+}) {
+  return (
+    <div className="mt-8 md:mt-10">
+      <div className="text-[11px] uppercase tracking-[0.22em] text-fg-muted mb-3">
+        All players — ranked by wins
+      </div>
+      <div className="panel overflow-hidden">
+        {/* Desktop header */}
+        <div className="hidden md:grid grid-cols-[56px_1fr_80px_80px_100px] gap-4 px-5 py-3 text-[10px] uppercase tracking-[0.22em] text-fg-muted border-b border-ink-border">
+          <div>Rank</div>
+          <div>Player</div>
+          <div className="text-right">Wins</div>
+          <div className="text-right">Losses</div>
+          <div className="text-right">Games</div>
+        </div>
+
+        {rows.map((row) => {
+          const badgeClass =
+            row.rank === 1
+              ? "bg-accent text-ink"
+              : row.rank <= 3
+                ? "bg-accent/15 text-accent border border-accent/30"
+                : "bg-ink-elevated text-fg-secondary";
+          return (
+            <div
+              key={row.player}
+              className="border-b border-ink-border last:border-b-0 hover:bg-ink-elevated transition-colors"
+            >
+              {/* Desktop */}
+              <div className="hidden md:grid grid-cols-[56px_1fr_80px_80px_100px] gap-4 px-5 py-3.5 items-center">
+                <div
+                  className={`h-7 w-7 rounded-full grid place-items-center text-xs font-semibold ${badgeClass}`}
+                >
+                  {row.rank}
+                </div>
+                <div className="font-mono text-sm text-fg-primary truncate">
+                  {shortAddress(row.player, 6)}
+                </div>
+                <div className="text-right font-mono tabular-nums text-fg-primary">
+                  {row.wins}
+                </div>
+                <div className="text-right font-mono tabular-nums text-fg-secondary">
+                  {row.losses}
+                </div>
+                <div className="text-right font-mono tabular-nums text-fg-muted">
+                  {row.gamesPlayed}
+                </div>
+              </div>
+
+              {/* Mobile */}
+              <div className="md:hidden px-4 py-3 flex items-center gap-3">
+                <div
+                  className={`h-7 w-7 rounded-full shrink-0 grid place-items-center text-xs font-semibold ${badgeClass}`}
+                >
+                  {row.rank}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-mono text-sm text-fg-primary truncate">
+                      {shortAddress(row.player, 5)}
+                    </span>
+                    <span className="font-mono text-sm tabular-nums whitespace-nowrap text-fg-primary">
+                      {row.wins}W
+                    </span>
+                  </div>
+                  <div className="mt-0.5 flex gap-3 text-[11px] text-fg-muted font-mono">
+                    <span>{row.losses} losses</span>
+                    <span>·</span>
+                    <span>{row.gamesPlayed} played</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function EmptyState({ asset }: { asset: string }) {
   return (

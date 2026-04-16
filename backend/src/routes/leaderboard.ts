@@ -9,6 +9,26 @@ export function leaderboardRouter(services: Services): Router {
   const r = Router();
 
   /**
+   * GET /api/leaderboard/all → backend-tracked, all modes, ranked by wins.
+   */
+  r.get("/leaderboard/all", async (_req, res, next) => {
+    try {
+      const rows = await services.gameStore.getAllPlayersLeaderboard(20);
+      res.json({
+        leaderboard: rows.map((r, i) => ({
+          rank: i + 1,
+          player: r.wallet,
+          wins: r.wins,
+          losses: r.losses,
+          gamesPlayed: r.games,
+        })),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
    * GET /api/leaderboard?asset=XLM (default) → top-10 in that asset.
    */
   r.get("/leaderboard", async (req, res, next) => {

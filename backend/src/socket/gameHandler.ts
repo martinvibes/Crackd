@@ -468,6 +468,18 @@ async function resolveFinished(
     logger.error({ err, gameId: state.gameId }, "on-chain resolution failed");
   }
 
+  // Track all-modes leaderboard in Redis (best-effort).
+  try {
+    const p1Won = outcome.winningSlot === "playerOne";
+    const p2Won = outcome.winningSlot === "playerTwo";
+    await services.gameStore.recordGameResult(state.playerOne, p1Won);
+    if (state.playerTwo && state.playerTwo !== "vault") {
+      await services.gameStore.recordGameResult(state.playerTwo, p2Won);
+    }
+  } catch (err) {
+    logger.warn({ err }, "failed to record all-players leaderboard");
+  }
+
   // Stellar Game Studio Hub: end-of-match (PvP only).
   if (state.hubSessionId && (state.mode === "pvp_casual" || state.mode === "pvp_staked")) {
     const p1Won = outcome.winningSlot === "playerOne";

@@ -100,6 +100,41 @@ export class GameStateStore {
     return await this.redis.get(`invite:${inviteCode.toUpperCase()}`);
   }
 
+  // ---- All-players leaderboard (backend-tracked, all modes) ----
+
+  async recordGameResult(wallet: string, won: boolean): Promise<void> {
+    if (!wallet || wallet === "vault") return;
+    await this.redis.zincrby("lb:games", 1, wallet);
+    if (won) {
+      await this.redis.zincrby("lb:wins", 1, wallet);
+    } else {
+      await this.redis.zincrby("lb:losses", 1, wallet);
+    }
+  }
+
+  async getAllPlayersLeaderboard(
+    limit = 20,
+  ): Promise<Array<{ wallet: string; wins: number; losses: number; games: number }>> {
+    const wallets = await this.redis.zrevrangebyscore(
+      "lb:games",
+      "+inf",
+      "1",
+      "LIMIT",
+      0,
+      limit,
+    );
+    const result: Array<{ wallet: string; wins: number; losses: number; games: number }> = [];
+    for (const wallet of wallets) {
+      const wins = Number(await this.redis.zscore("lb:wins", wallet)) || 0;
+      const losses = Number(await this.redis.zscore("lb:losses", wallet)) || 0;
+      const games = Number(await this.redis.zscore("lb:games", wallet)) || 0;
+      result.push({ wallet, wins, losses, games });
+    }
+    // Sort by wins desc, then by fewer losses
+    result.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+    return result;
+  }
+
   async nextHubSessionId(): Promise<number> {
     const n = await this.redis.incr("crackd:hub:session_seq");
     const MAX_U32 = 0xffff_ffff;
