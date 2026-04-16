@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" fill="none">
+  <rect width="800" height="200" rx="16" fill="#040008"/>
+  <!-- Blueprint grid (subtle) -->
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,0,168,0.08)" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="200" fill="url(#grid)"/>
+  <!-- Cipher Tile mark -->
+  <g transform="translate(60, 50)">
+    <rect x="4" y="4" width="96" height="96" rx="22" stroke="#FF00A8" stroke-width="5" fill="none"/>
+    <circle cx="34" cy="34" r="9" fill="#FF00A8"/>
+    <circle cx="70" cy="34" r="8" stroke="#FF00A8" stroke-width="4" fill="none"/>
+    <circle cx="34" cy="70" r="8" stroke="#FF00A8" stroke-width="4" fill="none"/>
+    <circle cx="70" cy="70" r="9" fill="#FF00A8"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="195" y="118" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="72" letter-spacing="-2" fill="#EDE6F0">
+    CRACK<tspan fill="#FF00A8">D</tspan>
+  </text>
+  <!-- Tagline -->
+  <text x="200" y="155" font-family="system-ui, sans-serif" font-weight="400" font-size="16" letter-spacing="4" fill="rgba(237,230,240,0.5)" text-transform="uppercase">
+    SET IT · GUARD IT · CRACK IT
+  </text>
+</svg>
