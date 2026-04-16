@@ -65,6 +65,11 @@ export interface S2CGameOver {
   isDraw: boolean;
   contractGameId: string | null;
   payoutTxHash?: string;
+  /** Bonus the winner received from the pool, in whole units (e.g. XLM). */
+  payoutAmount?: number;
+  payoutAsset?: string;
+  /** The winner's original stake, whole units. */
+  stakeAmount?: number;
   final: {
     playerOneCode: string;
     playerTwoCode: string;

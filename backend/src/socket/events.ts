@@ -86,6 +86,13 @@ export interface S2CGameOver {
   contractGameId: string | null;
   /** Payout tx hash (staked modes only). */
   payoutTxHash?: string;
+  /** Bonus amount the winner actually received from the pool, in whole
+   *  units of the asset (e.g. XLM, not stroops). Only present on a
+   *  staked win that triggered an on-chain resolve_win. */
+  payoutAmount?: number;
+  payoutAsset?: string;
+  /** What the winner's stake was, echoed for the share card. */
+  stakeAmount?: number;
   /** Revealed final state — codes + all guesses now visible to both. */
   final: {
     playerOneCode: string;

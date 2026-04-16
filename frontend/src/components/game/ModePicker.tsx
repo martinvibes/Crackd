@@ -14,6 +14,8 @@ interface ModeCard {
   d: string;
   icon: React.ReactNode;
   staked?: boolean;
+  /** If true, disable the card and show a "coming soon" overlay. */
+  comingSoon?: boolean;
 }
 
 const MODE_CARDS: ModeCard[] = [
@@ -42,6 +44,7 @@ const MODE_CARDS: ModeCard[] = [
     d: "1v1, winner takes the pot. 2.5% fee.",
     icon: <IconStakedDuo />,
     staked: true,
+    comingSoon: true,
   },
 ];
 
@@ -56,27 +59,36 @@ export function ModePicker({ onPick }: { onPick: (m: Mode) => void }) {
       </h1>
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-3">
-        {MODE_CARDS.map(({ m, t, d, icon, staked }) => (
+        {MODE_CARDS.map(({ m, t, d, icon, staked, comingSoon }) => (
           <button
             key={m}
-            onClick={() => onPick(m)}
-            className={`group relative text-left p-5 md:p-6 rounded-2xl border bg-ink-raised transition-all hover:-translate-y-0.5 hover:bg-ink-elevated ${
-              staked
-                ? "border-accent/20 hover:border-accent/45"
-                : "border-ink-border hover:border-ink-border-strong"
+            onClick={() => !comingSoon && onPick(m)}
+            disabled={comingSoon}
+            className={`group relative text-left p-5 md:p-6 rounded-2xl border bg-ink-raised transition-all ${
+              comingSoon
+                ? "border-ink-border opacity-60 cursor-not-allowed"
+                : staked
+                  ? "border-accent/20 hover:border-accent/45 hover:-translate-y-0.5 hover:bg-ink-elevated"
+                  : "border-ink-border hover:border-ink-border-strong hover:-translate-y-0.5 hover:bg-ink-elevated"
             }`}
           >
             <div className="flex items-start justify-between gap-4">
               <span
                 className={`inline-flex items-center justify-center w-11 h-11 rounded-xl transition-colors ${
-                  staked
-                    ? "bg-accent/10 text-accent group-hover:bg-accent/15"
-                    : "bg-ink-elevated text-fg-secondary group-hover:text-fg-primary"
+                  comingSoon
+                    ? "bg-ink-elevated text-fg-muted"
+                    : staked
+                      ? "bg-accent/10 text-accent group-hover:bg-accent/15"
+                      : "bg-ink-elevated text-fg-secondary group-hover:text-fg-primary"
                 }`}
               >
                 {icon}
               </span>
-              {staked ? (
+              {comingSoon ? (
+                <span className="text-[9px] uppercase tracking-[0.24em] text-fg-muted pt-1">
+                  Coming soon
+                </span>
+              ) : staked ? (
                 <span className="text-[9px] uppercase tracking-[0.24em] text-accent/80 pt-1">
                   Real stakes
                 </span>
@@ -93,10 +105,19 @@ export function ModePicker({ onPick }: { onPick: (m: Mode) => void }) {
             <div className="mt-1.5 text-base md:text-[17px] font-medium text-fg-primary leading-snug">
               {d}
             </div>
-            <div className="mt-4 inline-flex items-center gap-1.5 text-xs text-fg-secondary group-hover:text-fg-primary transition-colors">
-              Start
-              <span className="transition-transform group-hover:translate-x-0.5">→</span>
-            </div>
+            {!comingSoon && (
+              <div className="mt-4 inline-flex items-center gap-1.5 text-xs text-fg-secondary group-hover:text-fg-primary transition-colors">
+                Start
+                <span className="transition-transform group-hover:translate-x-0.5">
+                  →
+                </span>
+              </div>
+            )}
+            {comingSoon && (
+              <div className="mt-4 inline-flex items-center gap-1.5 text-xs text-fg-muted">
+                Unlocking post-launch
+              </div>
+            )}
           </button>
         ))}
       </div>

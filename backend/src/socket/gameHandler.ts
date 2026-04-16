@@ -437,18 +437,20 @@ async function resolveFinished(
   outcome: { winner: string | null; isDraw: boolean; winningSlot: PlayerSlot | null },
 ): Promise<void> {
   let payoutTxHash: string | undefined;
+  let payoutStroops: bigint | undefined;
 
   try {
     if (state.mode === "vs_ai_staked" && state.stakeAsset) {
       // Winner was the human → resolve_win. Loss → resolve_loss.
       if (outcome.winningSlot === "playerOne") {
-        const { txHash } = await services.stellar.resolveWin(
+        const { txHash, bonus } = await services.stellar.resolveWin(
           state.playerOne,
           state.stakeAsset,
           BigInt(state.stakeAmount || 0),
           state.playerOneGuesses.length,
         );
         payoutTxHash = txHash;
+        payoutStroops = bonus;
       } else {
         await services.stellar.resolveLoss(state.playerOne);
       }
@@ -483,6 +485,13 @@ async function resolveFinished(
     isDraw: outcome.isDraw,
     contractGameId: state.contractGameId,
     ...(payoutTxHash ? { payoutTxHash } : {}),
+    ...(payoutStroops !== undefined
+      ? {
+          payoutAmount: Number(payoutStroops) / 10_000_000,
+          payoutAsset: state.stakeAsset,
+          stakeAmount: (state.stakeAmount ?? 0) / 10_000_000,
+        }
+      : {}),
     final: {
       playerOneCode: state.playerOneCode ?? "",
       playerTwoCode:

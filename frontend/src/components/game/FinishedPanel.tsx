@@ -133,20 +133,31 @@ export function FinishedPanel({
         )}
       </div>
 
-      {/* Settlement link */}
-      {finished.payoutTxHash && (
-        <div className="mt-10 text-center text-sm">
-          <span className="text-fg-muted">Settled on-chain · </span>
-          <a
-            href={`https://stellar.expert/explorer/testnet/tx/${finished.payoutTxHash}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-accent hover:underline underline-offset-4"
-          >
-            {finished.payoutTxHash.slice(0, 12)}…
-          </a>
-        </div>
+      {/* Staked win: big payout banner */}
+      {won && finished.payoutAmount !== undefined && finished.payoutAmount > 0 && (
+        <PayoutBanner
+          payout={finished.payoutAmount}
+          asset={finished.payoutAsset ?? "XLM"}
+          stake={finished.stakeAmount ?? 0}
+          txHash={finished.payoutTxHash}
+        />
       )}
+
+      {/* Non-win settlement link (draw refund, PvP loss settlement) */}
+      {finished.payoutTxHash &&
+        !(won && finished.payoutAmount !== undefined && finished.payoutAmount > 0) && (
+          <div className="mt-10 text-center text-sm">
+            <span className="text-fg-muted">Settled on-chain · </span>
+            <a
+              href={`https://stellar.expert/explorer/testnet/tx/${finished.payoutTxHash}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent hover:underline underline-offset-4"
+            >
+              {finished.payoutTxHash.slice(0, 12)}…
+            </a>
+          </div>
+        )}
 
       {/* Actions */}
       <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
@@ -510,6 +521,131 @@ function DigitFlip({
     >
       {char || "·"}
     </motion.span>
+  );
+}
+
+// ============================================================
+// PayoutBanner — big "+X XLM" moment for staked wins
+// ============================================================
+
+function PayoutBanner({
+  payout,
+  asset,
+  stake,
+  txHash,
+}: {
+  payout: number;
+  asset: string;
+  stake: number;
+  txHash?: string;
+}) {
+  const total = stake + payout;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: 1.15, duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
+      className="mt-10 relative rounded-2xl p-6 md:p-8 border overflow-hidden"
+      style={{
+        background:
+          "linear-gradient(135deg, rgba(255,0,168,0.15), rgba(255,0,168,0.02))",
+        borderColor: "rgba(255,0,168,0.35)",
+        boxShadow: `0 30px 80px -30px ${MAGENTA}`,
+      }}
+    >
+      <div className="grid grid-cols-[1fr_auto] gap-6 items-center">
+        <div>
+          <div
+            className="text-[10px] uppercase tracking-[0.3em]"
+            style={{ color: MAGENTA }}
+          >
+            Payout settled on-chain
+          </div>
+          <div className="mt-3 flex items-baseline gap-3 flex-wrap">
+            <CountUpNumber value={payout} />
+            <span
+              className="font-semibold tracking-tight"
+              style={{ fontSize: "clamp(32px, 5vw, 48px)", color: MAGENTA }}
+            >
+              {asset}
+            </span>
+            <span className="text-fg-muted text-sm">bonus from the pool</span>
+          </div>
+          <div className="mt-3 text-sm text-fg-secondary">
+            You staked{" "}
+            <span className="text-fg-primary font-mono">
+              {stake.toFixed(2)} {asset}
+            </span>{" "}
+            · wallet credited{" "}
+            <span className="text-fg-primary font-mono">
+              {total.toFixed(2)} {asset}
+            </span>{" "}
+            total.
+          </div>
+          {txHash && (
+            <a
+              href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-1.5 text-xs text-accent hover:underline underline-offset-4"
+            >
+              View settlement tx
+              <span aria-hidden>↗</span>
+            </a>
+          )}
+        </div>
+        <div className="hidden md:block">
+          <CoinStack />
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/** Count-up that ticks from 0 → value in the winning number display. */
+function CountUpNumber({ value }: { value: number }) {
+  const mv = useMotionValue(0);
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const unsub = mv.on("change", (v) => setShown(v));
+    const controls = animate(mv, value, {
+      duration: 1.1,
+      delay: 1.25,
+      ease: [0.2, 0.8, 0.2, 1],
+    });
+    return () => {
+      controls.stop();
+      unsub();
+    };
+  }, [mv, value]);
+  return (
+    <span
+      className="font-semibold tracking-[-0.04em] tabular-nums"
+      style={{ fontSize: "clamp(56px, 10vw, 96px)", color: MAGENTA }}
+    >
+      +{shown.toFixed(2)}
+    </span>
+  );
+}
+
+/** Simple vault-door-ish glyph on the right side of the payout banner. */
+function CoinStack() {
+  return (
+    <svg
+      width="86"
+      height="86"
+      viewBox="0 0 86 86"
+      fill="none"
+      aria-hidden
+    >
+      <circle cx="43" cy="43" r="34" stroke={MAGENTA} strokeWidth="2" />
+      <circle cx="43" cy="43" r="20" stroke={MAGENTA} strokeWidth="1.5" opacity="0.6" />
+      <circle cx="43" cy="43" r="6" fill={MAGENTA} />
+      <line x1="43" y1="9" x2="43" y2="16" stroke={MAGENTA} strokeWidth="2" strokeLinecap="round" />
+      <line x1="43" y1="70" x2="43" y2="77" stroke={MAGENTA} strokeWidth="2" strokeLinecap="round" />
+      <line x1="9" y1="43" x2="16" y2="43" stroke={MAGENTA} strokeWidth="2" strokeLinecap="round" />
+      <line x1="70" y1="43" x2="77" y2="43" stroke={MAGENTA} strokeWidth="2" strokeLinecap="round" />
+    </svg>
   );
 }
 
