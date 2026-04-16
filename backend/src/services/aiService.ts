@@ -14,7 +14,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { randomInt } from "node:crypto";
 import type { AppConfig } from "../config.js";
-import { CODE_LENGTH, validateCode } from "./gameLogic.js";
+import { CODE_LENGTH, computeGuessResult, validateCode } from "./gameLogic.js";
 import type { Guess, GuessResult } from "../types/game.js";
 import { logger } from "../utils/logger.js";
 
@@ -101,44 +101,65 @@ export class AIService {
   }
 
   /**
-   * Ask Claude for The Vault's next guess against the player's code.
+   * Hybrid guesser:
+   *   1. Code filters the 5040-candidate space to those still consistent
+   *      with every prior (guess, feedback) pair → guarantees validity.
+   *   2. Claude picks WHICH surviving candidate to actually guess →
+   *      strategy + personality. An LLM is good at "pick one of these",
+   *      much less reliable at combinatorial deduction alone.
    *
-   * We feed it:
-   *  - the AI's prior guesses
-   *  - the feedback it received on each
-   * and ask it to deduce. Model must return EXACTLY a 4-digit string.
-   *
-   * Fallback if Claude fails: first valid code not previously tried.
+   * This way we get correctness (no hallucinated digits) + the AI brand
+   * (Claude genuinely plays) — instead of either extreme.
    */
   async getAIGuess(
     aiPreviousGuesses: string[],
     playerFeedback: GuessResult[],
   ): Promise<string> {
-    if (!this.client) return fallbackGuess(aiPreviousGuesses);
+    // Opening move: always a well-balanced spread. Deterministic.
+    if (aiPreviousGuesses.length === 0) return "1234";
 
-    const prompt = buildGuessPrompt(aiPreviousGuesses, playerFeedback);
+    const candidates = filterCandidates(aiPreviousGuesses, playerFeedback);
+    if (candidates.length === 0) return fallbackGuess(aiPreviousGuesses);
+    if (candidates.length === 1) return candidates[0]!; // only one possible code — slam-dunk.
+
+    // Cap the list we hand Claude — keeps prompt small + cheap.
+    const shortlist = candidates.slice(0, 8);
+
+    if (!this.client) {
+      // No API key configured — pick randomly from the valid set.
+      return shortlist[randomInt(0, shortlist.length)]!;
+    }
+
+    const prompt = buildStrategicPrompt(
+      aiPreviousGuesses,
+      playerFeedback,
+      shortlist,
+    );
     try {
       const resp = await this.client.messages.create({
         model: this.model,
-        max_tokens: 50,
+        max_tokens: 30,
         system:
-          "You are a code-breaking solver. You output only a single 4-digit code with no repeats. No explanation, no prose, nothing else.",
+          "You are The Vault playing a code-breaking game. You'll be given prior feedback and a shortlist of codes still consistent with that feedback. Pick ONE code from the shortlist that's most strategic to guess next. Output exactly the 4 digits, nothing else.",
         messages: [{ role: "user", content: prompt }],
       });
       const text = extractText(resp).trim();
       const match = text.match(/\b\d{4}\b/);
-      const code = match?.[0] ?? "";
-      if (!validateCode(code) || aiPreviousGuesses.includes(code)) {
-        logger.warn(
-          { text, code, previous: aiPreviousGuesses },
-          "AI guess invalid or repeated; falling back",
-        );
-        return fallbackGuess(aiPreviousGuesses);
+      const pick = match?.[0] ?? "";
+      // Hard validation: Claude's pick MUST be a valid surviving
+      // candidate. If not, fall through to random-valid — never let
+      // Claude drift the AI into an invalid state.
+      if (candidates.includes(pick) && !aiPreviousGuesses.includes(pick)) {
+        return pick;
       }
-      return code;
+      logger.warn(
+        { text, pick, candidateCount: candidates.length },
+        "Claude returned code outside shortlist; picking random valid",
+      );
+      return shortlist[randomInt(0, shortlist.length)]!;
     } catch (err) {
-      logger.error({ err }, "AI guess call failed; falling back");
-      return fallbackGuess(aiPreviousGuesses);
+      logger.error({ err }, "AI guess call failed; picking random valid");
+      return shortlist[randomInt(0, shortlist.length)]!;
     }
   }
 
@@ -183,24 +204,78 @@ function extractText(resp: Anthropic.Messages.Message): string {
   return "";
 }
 
-function buildGuessPrompt(
+/**
+ * Every valid 4-digit code with distinct digits. 5040 entries, enumerated
+ * once at module load so we don't rebuild it per turn.
+ */
+const ALL_CANDIDATES: readonly string[] = (() => {
+  const out: string[] = [];
+  for (let a = 0; a < 10; a++) {
+    for (let b = 0; b < 10; b++) {
+      if (b === a) continue;
+      for (let c = 0; c < 10; c++) {
+        if (c === a || c === b) continue;
+        for (let d = 0; d < 10; d++) {
+          if (d === a || d === b || d === c) continue;
+          out.push(`${a}${b}${c}${d}`);
+        }
+      }
+    }
+  }
+  return out;
+})();
+
+/**
+ * Keep only codes consistent with every prior (guess, feedback) pair.
+ * Also strips out anything the AI already tried.
+ */
+function filterCandidates(
+  previousGuesses: string[],
+  feedback: GuessResult[],
+): string[] {
+  return ALL_CANDIDATES.filter((candidate) => {
+    if (previousGuesses.includes(candidate)) return false;
+    for (let i = 0; i < previousGuesses.length; i++) {
+      const want = feedback[i];
+      const prev = previousGuesses[i];
+      if (!want || !prev) continue;
+      const got = computeGuessResult(candidate, prev);
+      if (got.pots !== want.pots || got.pans !== want.pans) return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * Prompt for the hybrid picker. Gives Claude BOTH the game history
+ * (so it can reason about what's known) AND the pre-filtered shortlist
+ * it's allowed to pick from. Its job is strategic selection, not
+ * deduction.
+ */
+function buildStrategicPrompt(
   aiPreviousGuesses: string[],
   playerFeedback: GuessResult[],
+  shortlist: string[],
 ): string {
   const rounds = aiPreviousGuesses.map(
     (g, i) =>
-      `Guess ${i + 1}: ${g} → ${playerFeedback[i]?.pots ?? 0} pots, ${
+      `  ${i + 1}. ${g}  →  ${playerFeedback[i]?.pots ?? 0} POT, ${
         playerFeedback[i]?.pans ?? 0
-      } pans`,
+      } PAN`,
   );
   return [
-    "You are guessing a secret 4-digit code with no repeated digits (digits 0-9).",
-    "Feedback per guess: POT = correct digit correct position; PAN = correct digit wrong position.",
+    "You are guessing a secret 4-digit code (no repeated digits, 0-9).",
+    "POT = right digit, right place. PAN = right digit, wrong place.",
     "",
-    "Previous rounds:",
-    rounds.length ? rounds.join("\n") : "(none yet)",
+    "Your guesses so far:",
+    rounds.length ? rounds.join("\n") : "  (none)",
     "",
-    "Respond with exactly one 4-digit guess — no repeats, not one you already tried.",
+    "The codes still consistent with all the feedback above:",
+    ...shortlist.map((c) => `  ${c}`),
+    "",
+    "Pick ONE from that shortlist. Prefer picks that split the remaining",
+    "possibilities evenly (maximum info if wrong) over safer guesses.",
+    "Respond with exactly 4 digits. No explanation.",
   ].join("\n");
 }
 
@@ -230,4 +305,9 @@ function fallbackGuess(previous: string[]): string {
 }
 
 // Vitest
-export const __testing = { buildGuessPrompt, tauntUserPrompt, fallbackGuess };
+export const __testing = {
+  buildStrategicPrompt,
+  tauntUserPrompt,
+  fallbackGuess,
+  filterCandidates,
+};
