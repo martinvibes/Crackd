@@ -239,6 +239,15 @@ crackd/
 
 ## Future Features
 
+### 👤 Player Profiles
+Dedicated `/profile` tab with editable display names, full activity history (last 50 games), win-rate graphs, and favourite-mode breakdowns. Currently players are identified by truncated wallet addresses — profiles add real identity.
+
+### 🔐 Privy Auth (Web2 Onboarding)
+Email / Google / Apple login via [Privy](https://privy.io/) embedded wallets alongside existing Freighter/Albedo/xBull. Web2 users get an auto-funded custodial Stellar wallet on first play — zero friction from landing page to first guess.
+
+### 💱 Fiat On-Ramp (Naira / Ghana Cedis)
+Partner with licensed on-ramp providers (Yellow Card, Transak) so players can buy XLM directly with NGN or GHS. Never handle fiat ourselves — redirect to the partner widget, XLM arrives in-wallet, back to Crackd. Requires legal/KYC integration.
+
 ### 🏆 Tournament Mode
 8-player single-elimination brackets. All players escrow an entry fee. Winner takes the pot. Bracket state lives on-chain — no admin can rig results. Weekly tournaments with escalating prize pools.
 

@@ -16,11 +16,18 @@ export function LobbyPanel({
   mode: Mode;
   onCancel: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"code" | "url" | false>(false);
+  const shareUrl = `${window.location.origin}/join/${inviteCode}`;
 
-  function copy() {
+  function copyCode() {
     navigator.clipboard.writeText(inviteCode);
-    setCopied(true);
+    setCopied("code");
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  function copyUrl() {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied("url");
     setTimeout(() => setCopied(false), 1500);
   }
 
@@ -53,9 +60,17 @@ export function LobbyPanel({
           >
             {inviteCode}
           </span>
-          <button onClick={copy} className="btn-primary mt-2">
-            {copied ? "Copied ✓" : "Copy code"}
-          </button>
+          <div className="mt-3 flex items-center gap-2">
+            <button onClick={copyCode} className="btn-primary">
+              {copied === "code" ? "Copied ✓" : "Copy code"}
+            </button>
+            <button onClick={copyUrl} className="btn-ghost">
+              {copied === "url" ? "Link copied ✓" : "Copy link"}
+            </button>
+          </div>
+          <div className="mt-3 text-xs text-fg-muted font-mono break-all max-w-xs select-all">
+            {shareUrl}
+          </div>
         </div>
 
         <div className="mt-8 inline-flex items-center gap-2 text-xs text-fg-muted">
