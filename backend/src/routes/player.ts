@@ -58,11 +58,14 @@ export function playerRouter(services: Services): Router {
       const wallet = addressSchema.parse(req.params.walletAddress);
 
       const assets = services.assets.list();
-      const [stats, earningsMap, username, avatarUrl, ...dailies] = await Promise.all([
+      const [stats, earningsMap, username, avatarUrl, redisWins, redisLosses, redisGames, ...dailies] = await Promise.all([
         services.stellar.getPlayerStats(wallet),
         services.stellar.getPlayerEarnings(wallet),
         services.gameStore.getUsername(wallet),
         services.gameStore.getAvatar(wallet),
+        services.gameStore["redis"].zscore("lb:wins", wallet),
+        services.gameStore["redis"].zscore("lb:losses", wallet),
+        services.gameStore["redis"].zscore("lb:games", wallet),
         ...assets.map((a) => services.stellar.getDailyRemaining(wallet, a.symbol)),
       ]);
 
@@ -82,9 +85,14 @@ export function playerRouter(services: Services): Router {
         wallet,
         username: username ?? null,
         avatarUrl: avatarUrl ?? null,
-        wins: stats.wins,
-        losses: stats.losses,
-        gamesPlayed: stats.gamesPlayed,
+        // All-modes totals (Redis-tracked, includes free + casual + staked)
+        wins: Number(redisWins) || stats.wins,
+        losses: Number(redisLosses) || stats.losses,
+        gamesPlayed: Number(redisGames) || stats.gamesPlayed,
+        // On-chain staked stats (from CrackdVault contract)
+        stakedWins: stats.wins,
+        stakedLosses: stats.losses,
+        stakedGames: stats.gamesPlayed,
         currentStreak: stats.currentStreak,
         bestStreak: stats.bestStreak,
         assets: perAsset,
