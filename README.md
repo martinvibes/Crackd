@@ -105,6 +105,10 @@ The Vault is Crackd's AI code guardian. It speaks **West African Pidgin English*
  Game Hub (Stellar Game Studio)
 ```
 
+### Stellar Game Studio Integration
+
+Crackd is built on the [Stellar Game Studio](https://github.com/jamesbachini/Stellar-Game-Studio) ecosystem. Every game session — vs-AI and multiplayer — reports `start_game` and `end_game` to the shared Game Hub contract, making Crackd visible on the ecosystem-wide leaderboard and enabling cross-game analytics.
+
 ### Smart Contracts (Rust / Soroban)
 
 | Contract | Address | Purpose |

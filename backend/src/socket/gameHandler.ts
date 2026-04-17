@@ -107,6 +107,17 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
           playerTwo: "vault",
           view: buildView(state, "playerOne"),
         });
+
+        // Game Hub: report vs-AI sessions too (admin wallet stands in
+        // as player2 so the Hub's two-player constraint is satisfied).
+        const sessionId = await services.gameStore.nextHubSessionId();
+        state.hubSessionId = sessionId;
+        await services.gameStore.save(state);
+        void services.stellar.hubStartGame(
+          sessionId,
+          walletAddress,
+          services.cfg.ADMIN_PUBLIC_KEY,
+        );
       }
       ack({ gameId, inviteCode });
     } catch (err) {
@@ -480,8 +491,8 @@ async function resolveFinished(
     logger.warn({ err }, "failed to record all-players leaderboard");
   }
 
-  // Stellar Game Studio Hub: end-of-match (PvP only).
-  if (state.hubSessionId && (state.mode === "pvp_casual" || state.mode === "pvp_staked")) {
+  // Stellar Game Studio Hub: end-of-match (all modes with a session).
+  if (state.hubSessionId) {
     const p1Won = outcome.winningSlot === "playerOne";
     void services.stellar.hubEndGame(state.hubSessionId, p1Won);
   }
