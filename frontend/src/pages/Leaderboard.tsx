@@ -376,6 +376,8 @@ function AllPlayersTable({
   rows: Array<{
     rank: number;
     player: string;
+    username?: string | null;
+    avatarUrl?: string | null;
     wins: number;
     losses: number;
     gamesPlayed: number;

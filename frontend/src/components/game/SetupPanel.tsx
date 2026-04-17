@@ -57,7 +57,6 @@ export function SetupPanel({
   const [asset, setAsset] = useState("XLM");
   const [stake, setStake] = useState(1);
 
-  const isStaked = mode === "vs_ai_staked" || mode === "pvp_staked";
   const canJoin = mode === "pvp_casual" || mode === "pvp_staked";
 
   // Best-case bonus preview (top tier = 1.5× bonus → total 2.5× stake).

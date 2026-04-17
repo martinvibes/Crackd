@@ -97,6 +97,8 @@ export const api = {
       leaderboard: Array<{
         rank: number;
         player: string;
+        username?: string | null;
+        avatarUrl?: string | null;
         wins: number;
         losses: number;
         gamesPlayed: number;
