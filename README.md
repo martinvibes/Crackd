@@ -127,7 +127,18 @@ Crackd is built on the [Stellar Game Studio](https://github.com/jamesbachini/Ste
 | `stellarService.ts` | Soroban contract calls — simulate (reads), admin-sign (writes), player-submit (pre-signed XDR). |
 | `aiService.ts` | Hybrid solver + Claude taunts. Candidate filtering + strategic LLM pick. |
 | `gameHandler.ts` | Socket.io real-time game orchestration. Per-socket views (no secret leaks). |
-| `gameState.ts` | Redis game sessions + invite codes + all-players leaderboard. |
+| `gameState.ts` | Redis game sessions + invite codes + all-players leaderboard + player identity. |
+
+### Player Profiles
+
+Every player gets a profile at `/profile` with:
+- **Custom username** — replaces wallet addresses across the leaderboard and game UI
+- **Profile picture** — upload your own (resized to 128×128, stored in Redis) or use the auto-generated gradient avatar derived from your wallet address
+- **Rank tier** — Rookie → Player → Cracker → Breaker → Vault Master based on total wins
+- **Win-rate ring** — animated circular progress showing your win percentage
+- **W/L bar** — visual split of wins vs losses
+- **Per-asset earnings** — how much XLM/USDC you've earned + daily cap remaining
+- **Ambient background music** — toggleable chill soundtrack with play/pause remembered across sessions
 
 ---
 
@@ -242,9 +253,6 @@ crackd/
 ---
 
 ## Future Features
-
-### 👤 Player Profiles
-Dedicated `/profile` tab with editable display names, full activity history (last 50 games), win-rate graphs, and favourite-mode breakdowns. Currently players are identified by truncated wallet addresses — profiles add real identity.
 
 ### 🔐 Privy Auth (Web2 Onboarding)
 Email / Google / Apple login via [Privy](https://privy.io/) embedded wallets alongside existing Freighter/Albedo/xBull. Web2 users get an auto-funded custodial Stellar wallet on first play — zero friction from landing page to first guess.

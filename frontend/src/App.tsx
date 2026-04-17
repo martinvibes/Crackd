@@ -6,6 +6,7 @@ import Game from "./pages/Game";
 import Leaderboard from "./pages/Leaderboard";
 import Logos from "./pages/Logos";
 import Profile from "./pages/Profile";
+import { MusicPlayer } from "./components/MusicPlayer";
 
 /**
  * /join/:code → redirects to /play?mode=pvp_casual&invite=CODE so the
@@ -25,6 +26,7 @@ function JoinRedirect() {
 export default function App() {
   return (
     <BrowserRouter>
+      <MusicPlayer />
       <Routes>
         {/* Home owns its own chrome (no bottom nav — cleaner landing). */}
         <Route path="/" element={<Home />} />
