@@ -11,6 +11,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { api, type LeaderboardRow } from "../lib/api";
 import { shortAddress } from "../lib/stellar";
+import { Avatar } from "../components/Avatar";
 
 const MAGENTA = "#FF00A8";
 
@@ -207,9 +208,25 @@ function PodiumCard({
         <TrophyMark tone={tone} />
       </div>
 
-      {/* Address */}
-      <div className="mt-5 font-mono text-sm md:text-[15px] text-fg-primary truncate">
-        {shortAddress(row.player, 6)}
+      {/* Identity */}
+      <div className="mt-5 flex items-center gap-2.5">
+        <Avatar address={row.player} size={28} src={row.avatarUrl} className="shrink-0" />
+        <div className="min-w-0">
+          {row.username ? (
+            <>
+              <div className="text-sm md:text-[15px] text-fg-primary font-medium truncate">
+                {row.username}
+              </div>
+              <div className="font-mono text-[10px] text-fg-muted truncate">
+                {shortAddress(row.player, 4)}
+              </div>
+            </>
+          ) : (
+            <div className="font-mono text-sm md:text-[15px] text-fg-primary truncate">
+              {shortAddress(row.player, 6)}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Earned — the hero number */}
@@ -301,8 +318,11 @@ function TableRow({ row, asset }: { row: LeaderboardRow; asset: string }) {
         <div className="h-7 w-7 rounded-full grid place-items-center text-xs font-semibold bg-ink-elevated text-fg-secondary">
           {row.rank}
         </div>
-        <div className="font-mono text-sm text-fg-primary truncate">
-          {shortAddress(row.player, 6)}
+        <div className="flex items-center gap-2 min-w-0">
+          <Avatar address={row.player} size={22} src={row.avatarUrl} className="shrink-0" />
+          <span className="text-sm text-fg-primary truncate">
+            {row.username ?? shortAddress(row.player, 6)}
+          </span>
         </div>
         <div className="text-right font-mono tabular-nums">
           {row.totalEarned.toFixed(2)}{" "}
@@ -395,8 +415,11 @@ function AllPlayersTable({
                 >
                   {row.rank}
                 </div>
-                <div className="font-mono text-sm text-fg-primary truncate">
-                  {shortAddress(row.player, 6)}
+                <div className="flex items-center gap-2 min-w-0">
+                  <Avatar address={row.player} size={22} src={row.avatarUrl} className="shrink-0" />
+                  <span className="text-sm text-fg-primary truncate">
+                    {row.username ?? shortAddress(row.player, 6)}
+                  </span>
                 </div>
                 <div className="text-right font-mono tabular-nums text-fg-primary">
                   {row.wins}
@@ -418,8 +441,8 @@ function AllPlayersTable({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-mono text-sm text-fg-primary truncate">
-                      {shortAddress(row.player, 5)}
+                    <span className="text-sm text-fg-primary truncate">
+                      {row.username ?? shortAddress(row.player, 5)}
                     </span>
                     <span className="font-mono text-sm tabular-nums whitespace-nowrap text-fg-primary">
                       {row.wins}W

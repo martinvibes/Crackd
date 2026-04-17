@@ -5,6 +5,7 @@ import Home from "./pages/Home";
 import Game from "./pages/Game";
 import Leaderboard from "./pages/Leaderboard";
 import Logos from "./pages/Logos";
+import Profile from "./pages/Profile";
 
 /**
  * /join/:code → redirects to /play?mode=pvp_casual&invite=CODE so the
@@ -35,6 +36,7 @@ export default function App() {
         <Route element={<PlayLayout />}>
           <Route path="/play" element={<Game />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
 
         {/* /join/:code → auto-redirect into /play with invite pre-filled */}

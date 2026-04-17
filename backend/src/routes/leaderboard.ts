@@ -14,10 +14,15 @@ export function leaderboardRouter(services: Services): Router {
   r.get("/leaderboard/all", async (_req, res, next) => {
     try {
       const rows = await services.gameStore.getAllPlayersLeaderboard(20);
+      const ids = await services.gameStore.resolveIdentities(
+        rows.map((r) => r.wallet),
+      );
       res.json({
         leaderboard: rows.map((r, i) => ({
           rank: i + 1,
           player: r.wallet,
+          username: ids[r.wallet]?.username ?? null,
+          avatarUrl: ids[r.wallet]?.avatarUrl ?? null,
           wins: r.wins,
           losses: r.losses,
           gamesPlayed: r.games,
@@ -39,11 +44,16 @@ export function leaderboardRouter(services: Services): Router {
         return;
       }
       const entries = await services.stellar.getLeaderboard(asset);
+      const ids = await services.gameStore.resolveIdentities(
+        entries.map((e) => e.player),
+      );
       res.json({
         asset,
         leaderboard: entries.map((e, idx) => ({
           rank: idx + 1,
           player: e.player,
+          username: ids[e.player]?.username ?? null,
+          avatarUrl: ids[e.player]?.avatarUrl ?? null,
           totalEarned: stroopsToXlm(e.totalEarned),
           totalEarnedStroops: e.totalEarned.toString(),
           wins: e.wins,

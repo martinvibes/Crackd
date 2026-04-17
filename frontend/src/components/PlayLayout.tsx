@@ -49,6 +49,7 @@ export default function PlayLayout() {
           <TabLink to="/" label="Home" icon={<IconHome />} />
           <TabLink to="/play" label="Play" icon={<IconPlay />} end />
           <TabLink to="/leaderboard" label="Winners" icon={<IconTrophy />} />
+          <TabLink to="/profile" label="Profile" icon={<IconProfile />} />
         </div>
       </nav>
     </div>
@@ -104,6 +105,14 @@ function IconTrophy() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M8 21h8m-4-4v4M5 4h14v4a7 7 0 0 1-14 0V4z"/>
       <path d="M5 6H3a2 2 0 0 0 2 4M19 6h2a2 2 0 0 1-2 4"/>
+    </svg>
+  );
+}
+function IconProfile() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4"/>
+      <path d="M20 21c0-3.87-3.58-7-8-7s-8 3.13-8 7"/>
     </svg>
   );
 }

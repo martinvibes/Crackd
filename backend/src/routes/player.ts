@@ -9,6 +9,45 @@ export function playerRouter(services: Services): Router {
   const r = Router();
 
   /**
+   * PUT /api/player/:walletAddress/username — set or update display name.
+   */
+  r.put("/player/:walletAddress/username", async (req, res, next) => {
+    try {
+      const wallet = addressSchema.parse(req.params.walletAddress);
+      const body = z.object({ username: z.string().min(1).max(20) }).parse(req.body);
+      await services.gameStore.setUsername(wallet, body.username.trim());
+      res.json({ ok: true, username: body.username.trim() });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ error: "Username must be 1-20 characters" });
+        return;
+      }
+      next(err);
+    }
+  });
+
+  /**
+   * PUT /api/player/:walletAddress/avatar — upload profile picture as
+   * base64 data URL. Frontend resizes to 128×128 before sending.
+   */
+  r.put("/player/:walletAddress/avatar", async (req, res, next) => {
+    try {
+      const wallet = addressSchema.parse(req.params.walletAddress);
+      const body = z
+        .object({ image: z.string().startsWith("data:image/") })
+        .parse(req.body);
+      await services.gameStore.setAvatar(wallet, body.image);
+      res.json({ ok: true });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid image format" });
+        return;
+      }
+      next(err);
+    }
+  });
+
+  /**
    * GET /api/player/:walletAddress
    *
    * Returns unified gameplay stats + per-asset earnings + per-asset
@@ -19,9 +58,11 @@ export function playerRouter(services: Services): Router {
       const wallet = addressSchema.parse(req.params.walletAddress);
 
       const assets = services.assets.list();
-      const [stats, earningsMap, ...dailies] = await Promise.all([
+      const [stats, earningsMap, username, avatarUrl, ...dailies] = await Promise.all([
         services.stellar.getPlayerStats(wallet),
         services.stellar.getPlayerEarnings(wallet),
+        services.gameStore.getUsername(wallet),
+        services.gameStore.getAvatar(wallet),
         ...assets.map((a) => services.stellar.getDailyRemaining(wallet, a.symbol)),
       ]);
 
@@ -39,6 +80,8 @@ export function playerRouter(services: Services): Router {
 
       res.json({
         wallet,
+        username: username ?? null,
+        avatarUrl: avatarUrl ?? null,
         wins: stats.wins,
         losses: stats.losses,
         gamesPlayed: stats.gamesPlayed,

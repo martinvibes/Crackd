@@ -26,6 +26,8 @@ export interface PoolBalance {
 export interface LeaderboardRow {
   rank: number;
   player: string;
+  username?: string | null;
+  avatarUrl?: string | null;
   totalEarned: number;
   totalEarnedStroops: string;
   wins: number;
@@ -34,6 +36,8 @@ export interface LeaderboardRow {
 
 export interface PlayerStats {
   wallet: string;
+  username: string | null;
+  avatarUrl: string | null;
   wins: number;
   losses: number;
   gamesPlayed: number;
@@ -78,6 +82,16 @@ export const api = {
   player: (wallet: string) => j<PlayerStats>(`/api/player/${wallet}`),
   game: (gameId: string) => j<unknown>(`/api/game/${gameId}`),
   resolveInvite: (code: string) => j<{ gameId: string }>(`/api/invite/${code}`),
+  setUsername: (wallet: string, username: string) =>
+    j<{ ok: boolean; username: string }>(`/api/player/${wallet}/username`, {
+      method: "PUT",
+      body: JSON.stringify({ username }),
+    }),
+  setAvatar: (wallet: string, imageDataUrl: string) =>
+    j<{ ok: boolean }>(`/api/player/${wallet}/avatar`, {
+      method: "PUT",
+      body: JSON.stringify({ image: imageDataUrl }),
+    }),
   leaderboardAll: () =>
     j<{
       leaderboard: Array<{

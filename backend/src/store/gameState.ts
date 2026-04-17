@@ -100,6 +100,65 @@ export class GameStateStore {
     return await this.redis.get(`invite:${inviteCode.toUpperCase()}`);
   }
 
+  // ---- Player identity (username) ----
+
+  async setUsername(wallet: string, name: string): Promise<void> {
+    await this.redis.set(`username:${wallet}`, name.slice(0, 20));
+  }
+
+  async getUsername(wallet: string): Promise<string | null> {
+    return await this.redis.get(`username:${wallet}`);
+  }
+
+  async setAvatar(wallet: string, dataUrl: string): Promise<void> {
+    // Cap at ~150KB to keep Redis happy.
+    if (dataUrl.length > 200_000) throw new Error("Avatar too large");
+    await this.redis.set(`avatar:${wallet}`, dataUrl);
+  }
+
+  async getAvatar(wallet: string): Promise<string | null> {
+    return await this.redis.get(`avatar:${wallet}`);
+  }
+
+  async getUsernames(wallets: string[]): Promise<Record<string, string>> {
+    if (wallets.length === 0) return {};
+    const pipeline = this.redis.pipeline();
+    for (const w of wallets) pipeline.get(`username:${w}`);
+    const results = await pipeline.exec();
+    const map: Record<string, string> = {};
+    wallets.forEach((w, i) => {
+      const val = results?.[i]?.[1] as string | null;
+      if (val) map[w] = val;
+    });
+    return map;
+  }
+
+  /**
+   * Batch-resolve identities for a list of wallets. Returns a map of
+   * wallet → { username?, avatarUrl? } for leaderboard display.
+   */
+  async resolveIdentities(
+    wallets: string[],
+  ): Promise<Record<string, { username?: string; avatarUrl?: string }>> {
+    if (wallets.length === 0) return {};
+    const pipe = this.redis.pipeline();
+    for (const w of wallets) {
+      pipe.get(`username:${w}`);
+      pipe.get(`avatar:${w}`);
+    }
+    const results = await pipe.exec();
+    const map: Record<string, { username?: string; avatarUrl?: string }> = {};
+    wallets.forEach((w, i) => {
+      const username = results?.[i * 2]?.[1] as string | null;
+      const avatarUrl = results?.[i * 2 + 1]?.[1] as string | null;
+      map[w] = {
+        ...(username ? { username } : {}),
+        ...(avatarUrl ? { avatarUrl } : {}),
+      };
+    });
+    return map;
+  }
+
   // ---- All-players leaderboard (backend-tracked, all modes) ----
 
   async recordGameResult(wallet: string, won: boolean): Promise<void> {
