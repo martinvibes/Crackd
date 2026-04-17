@@ -7,6 +7,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Logos from "./pages/Logos";
 import Profile from "./pages/Profile";
 import { MusicPlayer } from "./components/MusicPlayer";
+import { sounds } from "./lib/sounds";
 
 /**
  * /join/:code → redirects to /play?mode=pvp_casual&invite=CODE so the
@@ -27,6 +28,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <MusicPlayer />
+      {/* Unlock Web Audio on first click anywhere in the app */}
+      <div className="contents" onClick={() => sounds.init()} onKeyDown={() => sounds.init()}>
       <Routes>
         {/* Home owns its own chrome (no bottom nav — cleaner landing). */}
         <Route path="/" element={<Home />} />
@@ -49,6 +52,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </div>
     </BrowserRouter>
   );
 }

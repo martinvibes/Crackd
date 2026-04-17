@@ -12,6 +12,7 @@
  * will flag duplicates when you submit.
  */
 import { useEffect, useRef } from "react";
+import { sounds } from "../../../lib/sounds";
 
 export function Composer({
   value,
@@ -60,6 +61,7 @@ export function Composer({
       return;
     }
     setDigitAt(idx, digit);
+    sounds.digitTap();
     if (idx < 3) refs[idx + 1]?.current?.focus();
   }
 

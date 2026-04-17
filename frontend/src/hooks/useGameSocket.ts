@@ -4,6 +4,7 @@
  */
 import { useEffect } from "react";
 import { getSocket } from "../lib/socket";
+import { sounds } from "../lib/sounds";
 import type {
   S2CChatMessage,
   S2CGameOver,
@@ -23,13 +24,39 @@ export function useGameSocket() {
   useEffect(() => {
     const socket = getSocket();
 
-    const onStarted = (e: S2CGameStarted) => setView(e.view);
-    const onGuess = (e: S2CGuessResult) => setView(e.view);
+    const onStarted = (e: S2CGameStarted) => {
+      setView(e.view);
+      sounds.yourTurn();
+    };
+    const onGuess = (e: S2CGuessResult) => {
+      setView(e.view);
+      // Play result dots in sequence — each POT/PAN/miss gets its own tick.
+      sounds.resultSequence(e.result.pots, e.result.pans);
+      // If it's now your turn, ping after the dots finish.
+      if (e.nextTurn === e.view.you) {
+        setTimeout(() => sounds.yourTurn(), 500);
+      }
+    };
     const onCodesSet = (e: { view: SafeGameView }) => setView(e.view);
-    const onOver = (e: S2CGameOver) => setFinished(e);
-    const onChat = (m: S2CChatMessage) => addChat(m);
+    const onOver = (e: S2CGameOver) => {
+      setFinished(e);
+      // Win fanfare or loss tone after a beat so it doesn't clash with
+      // the final result-dot sequence.
+      setTimeout(() => {
+        if (e.winner && e.winner !== "vault") {
+          sounds.cracked();
+        } else {
+          sounds.defeat();
+        }
+      }, 700);
+    };
+    const onChat = (m: S2CChatMessage) => {
+      addChat(m);
+      sounds.chatPop();
+    };
     const onTaunt = (t: S2CVaultTaunt) => {
       setTaunt(t.message);
+      sounds.taunt();
       setTimeout(() => setTaunt(null), 6000);
     };
     const onError = (e: { message: string }) => console.error("socket error:", e);

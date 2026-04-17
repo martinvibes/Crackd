@@ -14,6 +14,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { SafeGameView } from "../../../lib/socket";
+import { sounds } from "../../../lib/sounds";
 import { BoardHeader } from "./BoardHeader";
 import { GuessBubble } from "./GuessBubble";
 import { Composer } from "./Composer";
@@ -47,8 +48,12 @@ export function Board({
     }
     setError(null);
     const r = await (needsToSetCode ? onSetCode(code) : onGuess(code));
-    if (!r.ok) setError(r.error ?? "Try again");
-    else setDraft("");
+    if (!r.ok) {
+      setError(r.error ?? "Try again");
+    } else {
+      needsToSetCode ? sounds.codeLock() : sounds.guessSubmit();
+      setDraft("");
+    }
   }
 
   const timeline = buildTimeline(view);
