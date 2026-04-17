@@ -654,7 +654,7 @@ function Footer() {
   return (
     <footer className="max-w-[1280px] mx-auto px-6 md:px-10 py-10 border-t" style={{ borderColor: RULE }}>
       <div className="flex flex-wrap items-center justify-between gap-4 text-[10px] uppercase tracking-[0.28em] text-white/50">
-        <span>crackd · mechanism 001</span>
+        <span>crack<span style={{ color: HOT }}>d</span> · mechanism 001</span>
         <span>testnet · stellar</span>
         <div className="flex gap-4">
           <Link to="/play" className="hover:text-white">Play</Link>
