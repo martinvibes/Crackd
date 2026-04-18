@@ -7,6 +7,10 @@
 </p>
 
 <p align="center">
+  <a href="https://playcrackd.vercel.app"><strong>🎮 Play Live → playcrackd.vercel.app</strong></a>
+</p>
+
+<p align="center">
   <a href="https://stellar.expert/explorer/testnet/contract/CAFRPUU36IQQJX5O6X4XTYWQI2X7N5WXK37HUSOA256IEYDDVJGVVTHQ">Vault Contract ↗</a> ·
   <a href="https://stellar.expert/explorer/testnet/contract/CBDHNQFBASF3JZJBVA67SBDRWNCL7HPA67S5JIZ44MKLYO25H5MFFZNR">Duel Contract ↗</a> ·
   <a href="https://github.com/jamesbachini/Stellar-Game-Studio">Stellar Game Studio ↗</a>
