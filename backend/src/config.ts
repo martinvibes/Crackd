@@ -58,7 +58,7 @@ const schema = z.object({
     .transform((v) => v === "true"),
 
   ANTHROPIC_API_KEY: z.string().min(1),
-  CLAUDE_MODEL: z.string().default("claude-3-5-haiku-20241022"),
+  CLAUDE_MODEL: z.string().default("claude-haiku-4-5-20251001"),
   CLAUDE_MAX_TOKENS: z.coerce.number().int().positive().default(200),
 
   REDIS_URL: z.string().default("redis://localhost:6379"),
