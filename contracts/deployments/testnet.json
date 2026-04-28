@@ -30,15 +30,19 @@
       "multi_asset": true
     },
     "crackd_duel": {
-      "id": "CBDHNQFBASF3JZJBVA67SBDRWNCL7HPA67S5JIZ44MKLYO25H5MFFZNR",
-      "explorer": "https://stellar.expert/explorer/testnet/contract/CBDHNQFBASF3JZJBVA67SBDRWNCL7HPA67S5JIZ44MKLYO25H5MFFZNR",
-      "init_tx": "420ef9748051e4fdebed243ec72010a0595d17b5fb1ece6b83bb924853c0d1e5",
-      "deployed_at": "2026-04-14",
-      "multi_asset": true
+      "id": "CAE7PEWHVT6AL37MVRB7LOFJPGPKGGYVWKYXGZAMTRGKIRY5ZSXWLXVS",
+      "explorer": "https://stellar.expert/explorer/testnet/contract/CAE7PEWHVT6AL37MVRB7LOFJPGPKGGYVWKYXGZAMTRGKIRY5ZSXWLXVS",
+      "init_tx": "121b3b04eccdc82160fcbb5be48e227059e62a8ddba005d5cd790fba682af4eb",
+      "deployed_at": "2026-04-28",
+      "multi_asset": true,
+      "upgradable": true,
+      "notes": "v4 — adds admin upgrade(new_wasm_hash) + set_admin(new). v3 fix retained: per-player nonce entropy in generate_game_id (no more sim/exec footprint drift). Future contract changes should `stellar contract install` the new wasm and call upgrade — same contract address, storage preserved."
     }
   },
   "superseded": {
     "crackd_vault_v1_xlm_only": "CBPKHIAMSRRSTNALDO3JONC727QBR5SETSHVK4P37GXTNXF5OIGNUCTQ",
-    "crackd_duel_v1_xlm_only": "CDRDJFZAPL3SJVSSWDAGEAHK4IOWCACM2XMVYQIFKFXMHCARMVAEEY3A"
+    "crackd_duel_v1_xlm_only": "CDRDJFZAPL3SJVSSWDAGEAHK4IOWCACM2XMVYQIFKFXMHCARMVAEEY3A",
+    "crackd_duel_v2_ledger_entropy_bug": "CBDHNQFBASF3JZJBVA67SBDRWNCL7HPA67S5JIZ44MKLYO25H5MFFZNR",
+    "crackd_duel_v3_no_upgrade": "CDD7MEJTINPHCVZQJISHOLUVWBBLTS4ZTMFMDC47DIKEJPCZ5J32UMYS"
   }
 }

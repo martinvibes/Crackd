@@ -15,6 +15,7 @@
  *    clients never learn the admin key or trigger it directly.
  */
 import type { Server, Socket } from "socket.io";
+import { scValToNative } from "@stellar/stellar-sdk";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
@@ -53,6 +54,7 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
       const walletAddress = walletSchema.parse(payload.walletAddress);
       const mode = payload.mode as GameMode;
 
+      let contractGameIdHex: string | null = null;
       if (mode === "pvp_staked" || mode === "vs_ai_staked") {
         // Staked flows: player has already signed a stake/create_game tx;
         // we submit the XDR before minting a session.
@@ -62,7 +64,25 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
         if (!services.assets.isSupported(payload.asset)) {
           return ack({ error: `Unsupported asset: ${payload.asset}` });
         }
-        await services.stellar.submitSignedTransaction(payload.signedXdr);
+        const submission = await services.stellar.submitSignedTransaction(
+          payload.signedXdr,
+        );
+        // Capture the on-chain BytesN<32> game id when create_game minted
+        // one. vs_ai_staked stakes against the vault and returns void —
+        // submission.returnValue is null there.
+        if (mode === "pvp_staked" && submission.returnValue) {
+          const raw = scValToNative(submission.returnValue) as
+            | Buffer
+            | Uint8Array;
+          const buf =
+            raw instanceof Buffer ? raw : Buffer.from(raw as Uint8Array);
+          if (buf.length !== 32) {
+            return ack({
+              error: `Expected 32-byte contract game id, got ${buf.length} bytes`,
+            });
+          }
+          contractGameIdHex = buf.toString("hex");
+        }
       }
 
       const gameId = uuidv4();
@@ -75,6 +95,7 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
         playerOne: walletAddress,
         stakeAmount: stakeStroops,
         stakeAsset: payload.asset,
+        contractGameId: contractGameIdHex,
       });
 
       // vs-AI is turn-based: both sides have codes. The Vault's code is
@@ -331,6 +352,25 @@ export function registerGameHandlers(io: CrackdServer, socket: CrackdSocket, ser
       if (state.status !== "lobby") {
         return ack({ ok: false, error: "game no longer cancellable" });
       }
+
+      // Best-effort on-chain refund for staked PvP. Don't block the user
+      // from leaving — log and continue if it fails (the contract's
+      // 1-hour expire_game path is the safety net).
+      if (state.mode === "pvp_staked" && state.contractGameId) {
+        try {
+          const refundTx = await services.stellar.cancelDuelGame(state.contractGameId);
+          logger.info(
+            { gameId: state.gameId, refundTx },
+            "duel lobby cancelled, stake refunded",
+          );
+        } catch (err) {
+          logger.warn(
+            { err, gameId: state.gameId },
+            "duel cancel refund failed",
+          );
+        }
+      }
+
       state.status = "cancelled";
       await services.gameStore.save(state);
       io.to(payload.gameId).emit("opponent_left", { gameId: payload.gameId });

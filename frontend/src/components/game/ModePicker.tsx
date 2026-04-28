@@ -44,7 +44,6 @@ const MODE_CARDS: ModeCard[] = [
     d: "1v1, winner takes the pot. 2.5% fee.",
     icon: <IconStakedDuo />,
     staked: true,
-    comingSoon: true,
   },
 ];
 

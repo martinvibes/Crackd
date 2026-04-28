@@ -8,6 +8,12 @@ pub enum DataKey {
     TreasuryBalance(Address),
     Game(BytesN<32>),
     PlayerGames(Address),
+    /// Per-player monotonic nonce used as entropy for `generate_game_id`.
+    /// Must be deterministic across simulation and execution — using
+    /// `env.ledger().timestamp() / sequence()` here would let the
+    /// simulated game_id differ from the executed one and cause a
+    /// "data key outside of the footprint" trap on submit.
+    PlayerNonce(Address),
 }
 
 #[contracttype]

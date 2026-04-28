@@ -241,6 +241,23 @@ export class StellarService {
     return txHash;
   }
 
+  /**
+   * Admin-signed `cancel_game` — refunds the stake to player_one. Only
+   * valid while the game is in `Waiting` status (i.e. lobby, before the
+   * opponent has joined). The contract allows either player_one or
+   * admin to cancel, so we use admin from the backend to spare the
+   * player a second wallet prompt.
+   */
+  async cancelDuelGame(contractGameIdHex: string): Promise<string> {
+    const idBytes = hexToBytesN32(contractGameIdHex);
+    const adminAddr = Address.fromString(this.admin.publicKey()).toScVal();
+    const { txHash } = await this.invokeAsAdmin(this.duel, "cancel_game", [
+      adminAddr,
+      nativeToScVal(idBytes, { type: "bytes" }),
+    ]);
+    return txHash;
+  }
+
   // ---------- Stellar Game Studio Hub integration ----------
   //
   // Required by the GameFi track: PvP matches are reported to the shared
@@ -306,7 +323,10 @@ export class StellarService {
 
   // ---------- Player-submitted (pre-signed by wallet) ----------
 
-  async submitSignedTransaction(signedXdr: string): Promise<string> {
+  async submitSignedTransaction(signedXdr: string): Promise<{
+    txHash: string;
+    returnValue: xdr.ScVal | null;
+  }> {
     const tx = TransactionBuilder.fromXDR(
       signedXdr,
       this.networkPassphrase,
@@ -317,7 +337,16 @@ export class StellarService {
         `sendTransaction failed: status=${send.status}, errorResult=${JSON.stringify(send.errorResult)}`,
       );
     }
-    return await this.pollForCompletion(send.hash);
+    const txHash = await this.pollForCompletion(send.hash);
+    // Pull the contract retval the same way invokeAsAdmin does. Some
+    // submissions (e.g. vault.stake) return void — getTransaction's
+    // returnValue is undefined in that case, which we surface as null.
+    const final = await this.rpcServer.getTransaction(txHash);
+    const returnValue =
+      final.status === rpc.Api.GetTransactionStatus.SUCCESS && final.returnValue
+        ? final.returnValue
+        : null;
+    return { txHash, returnValue };
   }
 
   // ---------- Internals ----------

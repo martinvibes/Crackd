@@ -44,6 +44,26 @@ impl CrackdDuel {
         storage::bump_instance(&env);
     }
 
+    /// Replace the contract's WASM in-place. Storage and contract address
+    /// are preserved — players don't need to re-stake or re-join. Admin
+    /// only. The new WASM must already be installed on the network
+    /// (e.g. via `stellar contract install --wasm new.wasm`).
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        require_admin(&env);
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+        storage::bump_instance(&env);
+    }
+
+    /// Admin can hand off ownership. Useful for rotating keys or moving
+    /// the project to a multisig. New admin must auth — proves the
+    /// new key is reachable before the old one loses control.
+    pub fn set_admin(env: Env, new_admin: Address) {
+        require_admin(&env);
+        new_admin.require_auth();
+        storage::set_admin(&env, &new_admin);
+        storage::bump_instance(&env);
+    }
+
     // ---------- Player actions ----------
 
     /// Player one creates a game with a chosen asset + stake. Returns
@@ -288,8 +308,14 @@ fn require_admin(env: &Env) -> Address {
 }
 
 fn generate_game_id(env: &Env, player_one: &Address) -> BytesN<32> {
+    // Entropy MUST be deterministic between simulation and execution,
+    // otherwise the simulated `Game(id)` storage key won't match the
+    // executed one and the tx traps with "data key outside of footprint".
+    // Per-player monotonic counter does the job: simulation reads N,
+    // execution reads N (same value because no other write happens to
+    // this key in the gap), both write N+1, both compute hash(player + N).
+    let nonce = storage::next_player_nonce(env, player_one);
     let mut data: Bytes = player_one.clone().to_xdr(env);
-    data.extend_from_array(&env.ledger().timestamp().to_be_bytes());
-    data.extend_from_array(&env.ledger().sequence().to_be_bytes());
+    data.extend_from_array(&nonce.to_be_bytes());
     env.crypto().sha256(&data).into()
 }

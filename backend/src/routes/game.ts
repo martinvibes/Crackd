@@ -63,6 +63,8 @@ export function gameRouter(services: Services): Router {
         isDraw: state.isDraw,
         maxGuesses: state.maxGuesses,
         stake: stroopsToXlm(BigInt(state.stakeAmount)),
+        stakeAsset: state.stakeAsset ?? null,
+        contractGameId: state.contractGameId,
         createdAt: state.createdAt,
         updatedAt: state.updatedAt,
         playerOneGuessCount: state.playerOneGuesses.length,
@@ -100,7 +102,7 @@ export function gameRouter(services: Services): Router {
         return;
       }
 
-      const txHash = await services.stellar.submitSignedTransaction(signedXdr);
+      const { txHash } = await services.stellar.submitSignedTransaction(signedXdr);
 
       const gameId = uuidv4();
       const state = createInitialState({

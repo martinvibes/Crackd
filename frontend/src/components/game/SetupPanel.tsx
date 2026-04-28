@@ -58,9 +58,16 @@ export function SetupPanel({
   const [stake, setStake] = useState(1);
 
   const canJoin = mode === "pvp_casual" || mode === "pvp_staked";
+  const isStaked = mode === "vs_ai_staked" || mode === "pvp_staked";
 
-  // Best-case bonus preview (top tier = 1.5× bonus → total 2.5× stake).
-  const bestBonus = useMemo(() => stake * 1.5, [stake]);
+  // Best-case bonus preview:
+  //  - vs_ai_staked: top tier = 1.5× bonus (total 2.5× stake)
+  //  - pvp_staked:   winner takes the pot (2× stake) minus 2.5% fee
+  //                  → net bonus over stake = 0.95× stake
+  const bestBonus = useMemo(
+    () => (mode === "pvp_staked" ? stake * 0.95 : stake * 1.5),
+    [stake, mode],
+  );
 
   return (
     <div className="animate-fade-in">
@@ -74,8 +81,9 @@ export function SetupPanel({
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* ---- create ---- */}
-        {mode === "vs_ai_staked" ? (
+        {isStaked ? (
           <VaultLockCard
+            mode={mode}
             assets={assets}
             asset={asset}
             setAsset={setAsset}
@@ -157,6 +165,7 @@ export function SetupPanel({
 // ============================================================
 
 function VaultLockCard({
+  mode,
   assets,
   asset,
   setAsset,
@@ -167,6 +176,7 @@ function VaultLockCard({
   busy,
   onSubmit,
 }: {
+  mode: Mode;
   assets: Asset[];
   asset: string;
   setAsset: (s: string) => void;
@@ -178,6 +188,7 @@ function VaultLockCard({
   onSubmit: () => void;
 }) {
   const safeStake = stake > 0 ? stake : 1;
+  const isPvp = mode === "pvp_staked";
   return (
     <div
       className="panel-elevated p-6 relative overflow-hidden"
@@ -189,13 +200,15 @@ function VaultLockCard({
       <div className="flex items-baseline justify-between">
         <div>
           <div className="text-[10px] uppercase tracking-[0.24em] text-fg-muted">
-            Vault lock
+            {isPvp ? "Duel lock" : "Vault lock"}
           </div>
-          <div className="mt-1 text-xl font-semibold">Stake your entry.</div>
+          <div className="mt-1 text-xl font-semibold">
+            {isPvp ? "Open the duel." : "Stake your entry."}
+          </div>
         </div>
         <div className="text-right">
           <div className="text-[10px] uppercase tracking-[0.24em] text-fg-muted">
-            Best case
+            {isPvp ? "If you win" : "Best case"}
           </div>
           <div
             className="mt-0.5 font-semibold tabular-nums"
@@ -261,7 +274,7 @@ function VaultLockCard({
         />
       </div>
 
-      <MultiplierTiers stake={safeStake} />
+      {isPvp ? <PvpPayoutNote stake={safeStake} asset={asset} /> : <MultiplierTiers stake={safeStake} />}
 
       {/* CTA */}
       <button
@@ -300,6 +313,64 @@ function VaultLockCard({
           100% { box-shadow: 0 0 0 0 rgba(255,0,168,0); }
         }
       `}</style>
+    </div>
+  );
+}
+
+/**
+ * PvP payout summary. Both players escrow `stake`. Winner takes
+ * the pot (2× stake) minus the 2.5% protocol fee. Draws refund
+ * both players in full.
+ */
+function PvpPayoutNote({ stake, asset }: { stake: number; asset: string }) {
+  const pot = stake * 2;
+  const fee = +(pot * 0.025).toFixed(4);
+  const winnerTakes = +(pot - fee).toFixed(4);
+  return (
+    <div className="mt-5 rounded-xl border border-ink-border bg-ink/50 p-3.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-[0.24em] text-fg-muted">
+          PvP payout
+        </span>
+        <span className="text-[10px] uppercase tracking-[0.24em] text-fg-muted">
+          {asset}
+        </span>
+      </div>
+      <div className="mt-2.5 grid grid-cols-3 gap-1.5">
+        <div className="rounded-lg px-2 py-2 border bg-ink-elevated border-ink-border text-center">
+          <div className="text-[9px] uppercase tracking-[0.22em] text-fg-muted">
+            Pot
+          </div>
+          <div className="mt-1 text-sm font-semibold tabular-nums text-fg-primary">
+            {pot}
+          </div>
+          <div className="text-[10px] text-fg-muted tabular-nums mt-0.5">
+            both escrow
+          </div>
+        </div>
+        <div className="rounded-lg px-2 py-2 border bg-ink-elevated border-ink-border text-center">
+          <div className="text-[9px] uppercase tracking-[0.22em] text-fg-muted">
+            Fee
+          </div>
+          <div className="mt-1 text-sm font-semibold tabular-nums text-fg-primary">
+            {fee}
+          </div>
+          <div className="text-[10px] text-fg-muted tabular-nums mt-0.5">
+            2.5%
+          </div>
+        </div>
+        <div className="rounded-lg px-2 py-2 border bg-accent/10 border-accent/30 text-center">
+          <div className="text-[9px] uppercase tracking-[0.22em] text-fg-muted">
+            Winner takes
+          </div>
+          <div className="mt-1 text-sm font-semibold tabular-nums text-accent">
+            {winnerTakes}
+          </div>
+          <div className="text-[10px] text-fg-muted tabular-nums mt-0.5">
+            draw refunds
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

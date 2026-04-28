@@ -47,6 +47,18 @@ pub fn get_game(env: &Env, id: &BytesN<32>) -> Option<GameSession> {
     env.storage().persistent().get(&key)
 }
 
+// -- Per-player nonce (instance) ------------------------------------------
+// Used as deterministic entropy for `generate_game_id`. Same player calling
+// create_game N times produces N unique ids without touching ledger
+// timestamp/sequence (which would cause sim/exec footprint drift).
+
+pub fn next_player_nonce(env: &Env, player: &Address) -> u64 {
+    let key = DataKey::PlayerNonce(player.clone());
+    let current: u64 = env.storage().instance().get(&key).unwrap_or(0);
+    env.storage().instance().set(&key, &(current + 1));
+    current
+}
+
 // -- Per-player game history (persistent) ---------------------------------
 
 pub fn get_player_games(env: &Env, player: &Address) -> Vec<BytesN<32>> {
