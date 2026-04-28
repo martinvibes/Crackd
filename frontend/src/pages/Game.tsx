@@ -53,6 +53,22 @@ type Stage =
   | "active"
   | "finished";
 
+/**
+ * Snapshot of an invite's underlying game, surfaced to the joiner so
+ * they can see what they're agreeing to BEFORE the wallet prompts.
+ * Populated by a debounced fetch off `GET /api/game/:gameId`.
+ */
+export type JoinPreview = {
+  gameId: string;
+  mode: Mode;
+  status: "lobby" | "setting_codes" | "active" | "finished" | "cancelled";
+  playerOne: string;
+  /** Whole-asset units (e.g. XLM, not stroops). 0 for casual games. */
+  stake: number;
+  stakeAsset: string | null;
+  contractGameId: string | null;
+};
+
 export default function Game() {
   useGameSocket(); // attach socket listeners to the store
 
@@ -75,6 +91,8 @@ export default function Game() {
   const [joinInviteInput, setJoinInviteInput] = useState(inviteParam ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [joinPreview, setJoinPreview] = useState<JoinPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Clear store on unmount.
   useEffect(() => () => reset(), [reset]);
@@ -83,6 +101,51 @@ export default function Game() {
   useEffect(() => {
     setMode(modeParam);
   }, [modeParam]);
+
+  // Live preview: when the joiner pastes an invite, fetch the game so
+  // we can show "this is a staked match — 1 XLM, winner takes 1.95"
+  // BEFORE the wallet prompts. Debounced so we don't hit the API on
+  // every keystroke. Cancellable so a fast typer doesn't see stale data.
+  useEffect(() => {
+    const trimmed = joinInviteInput.trim();
+    if (!trimmed || trimmed.length < 6) {
+      setJoinPreview(null);
+      setPreviewLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setPreviewLoading(true);
+      try {
+        const full = await lookupGameIdFromInvite(trimmed);
+        if (cancelled || !full) {
+          if (!cancelled) setJoinPreview(null);
+          return;
+        }
+        const gs = (await api.game(full)) as Partial<JoinPreview> & {
+          gameId?: string;
+        };
+        if (cancelled) return;
+        setJoinPreview({
+          gameId: gs.gameId ?? full,
+          mode: (gs.mode as Mode) ?? "pvp_casual",
+          status: (gs.status as JoinPreview["status"]) ?? "lobby",
+          playerOne: gs.playerOne ?? "",
+          stake: typeof gs.stake === "number" ? gs.stake : 0,
+          stakeAsset: gs.stakeAsset ?? null,
+          contractGameId: gs.contractGameId ?? null,
+        });
+      } catch {
+        if (!cancelled) setJoinPreview(null);
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [joinInviteInput]);
 
   function goBackToModePicker() {
     reset();
@@ -153,12 +216,23 @@ export default function Game() {
       const full = await lookupGameIdFromInvite(invite);
       if (!full) throw new Error("Invite not found");
 
+      // Reuse the live preview if it matches; otherwise fall back to a
+      // fresh fetch. Either way we use the game's ACTUAL mode, not the
+      // mode in the URL — invite redirects always set mode=pvp_casual.
+      const gs =
+        joinPreview && joinPreview.gameId === full
+          ? joinPreview
+          : ((await api.game(full)) as {
+              mode?: Mode;
+              contractGameId?: string | null;
+            });
+      const realMode = (gs.mode as Mode | undefined) ?? mode;
+
       const wallet = address ?? generateAnon();
       let signedXdr: string | undefined;
 
-      if (mode === "pvp_staked") {
-        if (!address) throw new Error("Connect a wallet to stake");
-        const gs = (await api.game(full)) as { contractGameId?: string | null };
+      if (realMode === "pvp_staked") {
+        if (!address) throw new Error("Connect a wallet to join a staked match");
         if (!gs.contractGameId) throw new Error("Contract game id missing");
         const xdr = await buildDuelJoinTx(address, gs.contractGameId);
         const sig = await signTransaction(xdr);
@@ -167,6 +241,13 @@ export default function Game() {
 
       const ack = await emitJoinGame({ gameId: full, walletAddress: wallet, signedXdr });
       if (!ack.ok) throw new Error(ack.error || "join failed");
+
+      // Sync local mode + URL with the game's real mode so the rest of
+      // the page renders correctly (board header, finished panel, etc).
+      if (realMode !== mode) {
+        setMode(realMode);
+        setSp({ mode: realMode, invite });
+      }
       setGameId(full);
     } catch (e) {
       setErr((e as Error).message);
@@ -201,6 +282,8 @@ export default function Game() {
           onCreate={handleCreate}
           onJoin={handleJoin}
           onBack={goBackToModePicker}
+          joinPreview={joinPreview}
+          previewLoading={previewLoading}
         />
       )}
 

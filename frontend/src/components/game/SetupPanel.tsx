@@ -6,6 +6,7 @@
  */
 import { useMemo, useState } from "react";
 import type { Asset } from "../../lib/api";
+import type { JoinPreview } from "../../pages/Game";
 import { BackLink } from "./BackLink";
 import { modeLabel, type Mode } from "./ModePicker";
 
@@ -43,6 +44,8 @@ export function SetupPanel({
   onCreate,
   onJoin,
   onBack,
+  joinPreview,
+  previewLoading,
 }: {
   mode: Mode;
   assets: Asset[];
@@ -53,6 +56,8 @@ export function SetupPanel({
   onCreate: (asset?: string, stake?: number) => void;
   onJoin: (invite: string) => void;
   onBack: () => void;
+  joinPreview: JoinPreview | null;
+  previewLoading: boolean;
 }) {
   const [asset, setAsset] = useState("XLM");
   const [stake, setStake] = useState(1);
@@ -117,28 +122,15 @@ export function SetupPanel({
 
         {/* ---- join OR solo-mode explainer ---- */}
         {canJoin ? (
-          <div className="panel-elevated p-6">
-            <div className="text-xs uppercase tracking-[0.18em] text-fg-muted">Join</div>
-            <div className="mt-1 text-xl font-semibold">Paste an invite</div>
-            <div className="mt-6">
-              <label className="text-[11px] uppercase tracking-[0.18em] text-fg-muted">
-                Invite code or full game id
-              </label>
-              <input
-                className="input w-full mt-2 font-mono"
-                placeholder="e.g. 7F3A2B  or  full-uuid"
-                value={invitePrefill}
-                onChange={(e) => onInviteChange(e.target.value)}
-              />
-            </div>
-            <button
-              className="btn-ghost w-full mt-6"
-              disabled={busy || !invitePrefill.trim()}
-              onClick={() => onJoin(invitePrefill.trim())}
-            >
-              {busy ? "Joining…" : "Join match"}
-            </button>
-          </div>
+          <JoinCard
+            invitePrefill={invitePrefill}
+            onInviteChange={onInviteChange}
+            onJoin={onJoin}
+            busy={busy}
+            walletConnected={walletConnected}
+            joinPreview={joinPreview}
+            previewLoading={previewLoading}
+          />
         ) : (
           <div className="panel p-6">
             <div className="text-xs uppercase tracking-[0.18em] text-fg-muted">
@@ -313,6 +305,196 @@ function VaultLockCard({
           100% { box-shadow: 0 0 0 0 rgba(255,0,168,0); }
         }
       `}</style>
+    </div>
+  );
+}
+
+// ============================================================
+// Join card — invite input + live preview of the match
+// ============================================================
+
+function JoinCard({
+  invitePrefill,
+  onInviteChange,
+  onJoin,
+  busy,
+  walletConnected,
+  joinPreview,
+  previewLoading,
+}: {
+  invitePrefill: string;
+  onInviteChange: (v: string) => void;
+  onJoin: (invite: string) => void;
+  busy: boolean;
+  walletConnected: boolean;
+  joinPreview: JoinPreview | null;
+  previewLoading: boolean;
+}) {
+  const isStaked = joinPreview?.mode === "pvp_staked";
+  const stake = joinPreview?.stake ?? 0;
+  const asset = joinPreview?.stakeAsset ?? "XLM";
+  const winnerTakes = +(stake * 2 * 0.975).toFixed(4);
+  const stale = !invitePrefill.trim() || invitePrefill.trim().length < 6;
+
+  // What the button says depends on (a) whether we have a confirmed
+  // preview, and (b) whether the joiner needs to escrow on chain.
+  let label = "Join match";
+  let disabled = busy || stale;
+  if (busy) {
+    label = isStaked ? "Signing in your wallet…" : "Joining…";
+  } else if (previewLoading && !stale) {
+    label = "Looking up match…";
+    disabled = true;
+  } else if (joinPreview?.status && joinPreview.status !== "lobby") {
+    label = `Match ${joinPreview.status}`;
+    disabled = true;
+  } else if (isStaked) {
+    if (!walletConnected) {
+      label = "Connect a wallet to escrow";
+      disabled = true;
+    } else {
+      label = `Sign & escrow ${stake} ${asset}`;
+    }
+  }
+
+  return (
+    <div className="panel-elevated p-6">
+      <div className="text-xs uppercase tracking-[0.18em] text-fg-muted">
+        Join
+      </div>
+      <div className="mt-1 text-xl font-semibold">Paste an invite</div>
+      <div className="mt-6">
+        <label className="text-[11px] uppercase tracking-[0.18em] text-fg-muted">
+          Invite code or full game id
+        </label>
+        <input
+          className="input w-full mt-2 font-mono"
+          placeholder="e.g. 7F3A2B  or  full-uuid"
+          value={invitePrefill}
+          onChange={(e) => onInviteChange(e.target.value)}
+        />
+      </div>
+
+      {/* Live preview — only shown once we resolve the invite. */}
+      {joinPreview && <JoinPreviewBlock preview={joinPreview} />}
+
+      <button
+        className={isStaked ? "btn-primary w-full mt-6" : "btn-ghost w-full mt-6"}
+        disabled={disabled}
+        onClick={() => onJoin(invitePrefill.trim())}
+      >
+        {label}
+      </button>
+
+      {isStaked && walletConnected && !busy && (
+        <div className="mt-3 text-[11px] text-fg-muted text-center leading-relaxed">
+          You'll escrow{" "}
+          <span className="text-fg-primary font-semibold">
+            {stake} {asset}
+          </span>{" "}
+          on signing. Winner gets{" "}
+          <span className="text-accent font-semibold">
+            {winnerTakes} {asset}
+          </span>
+          ; draw refunds both stakes.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JoinPreviewBlock({ preview }: { preview: JoinPreview }) {
+  const isStaked = preview.mode === "pvp_staked";
+  const isCasual = preview.mode === "pvp_casual";
+  const stake = preview.stake;
+  const asset = preview.stakeAsset ?? "XLM";
+  const pot = stake * 2;
+  const fee = +(pot * 0.025).toFixed(4);
+  const winnerTakes = +(pot - fee).toFixed(4);
+  const shortHost =
+    preview.playerOne.length > 12
+      ? `${preview.playerOne.slice(0, 4)}…${preview.playerOne.slice(-4)}`
+      : preview.playerOne;
+
+  return (
+    <div
+      className={`mt-4 rounded-xl border p-3.5 ${
+        isStaked
+          ? "border-accent/30 bg-accent/5"
+          : "border-ink-border bg-ink/50"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-[0.24em] text-fg-muted">
+          {isStaked ? "Staked match" : isCasual ? "Casual match" : "Match"}
+        </span>
+        <span className="text-[10px] uppercase tracking-[0.24em] text-fg-muted">
+          host {shortHost}
+        </span>
+      </div>
+
+      {isStaked ? (
+        <div className="mt-2.5 grid grid-cols-3 gap-1.5">
+          <PreviewStat
+            label="Your stake"
+            value={`${stake}`}
+            suffix={asset}
+            tone="neutral"
+          />
+          <PreviewStat
+            label="Pot"
+            value={`${pot}`}
+            suffix={`${asset} • 2.5% fee`}
+            tone="neutral"
+          />
+          <PreviewStat
+            label="If you win"
+            value={`${winnerTakes}`}
+            suffix={asset}
+            tone="accent"
+          />
+        </div>
+      ) : (
+        <div className="mt-2 text-sm text-fg-secondary">
+          No stake. Bragging rights only — first to crack the code wins.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PreviewStat({
+  label,
+  value,
+  suffix,
+  tone,
+}: {
+  label: string;
+  value: string;
+  suffix: string;
+  tone: "neutral" | "accent";
+}) {
+  return (
+    <div
+      className={`rounded-lg px-2 py-2 border text-center ${
+        tone === "accent"
+          ? "bg-accent/10 border-accent/30"
+          : "bg-ink-elevated border-ink-border"
+      }`}
+    >
+      <div className="text-[9px] uppercase tracking-[0.22em] text-fg-muted">
+        {label}
+      </div>
+      <div
+        className={`mt-1 text-sm font-semibold tabular-nums ${
+          tone === "accent" ? "text-accent" : "text-fg-primary"
+        }`}
+      >
+        {value}
+      </div>
+      <div className="text-[10px] text-fg-muted tabular-nums mt-0.5">
+        {suffix}
+      </div>
     </div>
   );
 }
