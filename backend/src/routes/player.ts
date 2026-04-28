@@ -58,25 +58,43 @@ export function playerRouter(services: Services): Router {
       const wallet = addressSchema.parse(req.params.walletAddress);
 
       const assets = services.assets.list();
-      const [stats, earningsMap, username, avatarUrl, redisWins, redisLosses, redisGames, ...dailies] = await Promise.all([
+      const [
+        stats,
+        earningsMap,
+        pvpEarningsMap,
+        username,
+        avatarUrl,
+        redisWins,
+        redisLosses,
+        redisGames,
+        streaks,
+        ...dailies
+      ] = await Promise.all([
         services.stellar.getPlayerStats(wallet),
         services.stellar.getPlayerEarnings(wallet),
+        services.gameStore.getPvpEarnings(wallet),
         services.gameStore.getUsername(wallet),
         services.gameStore.getAvatar(wallet),
         services.gameStore["redis"].zscore("lb:wins", wallet),
         services.gameStore["redis"].zscore("lb:losses", wallet),
         services.gameStore["redis"].zscore("lb:games", wallet),
+        services.gameStore.getStreaks(wallet),
         ...assets.map((a) => services.stellar.getDailyRemaining(wallet, a.symbol)),
       ]);
 
       const perAsset = assets.map((a, i) => {
-        const earnedStroops = earningsMap[a.sac] ?? 0n;
+        const vaultStroops = (earningsMap[a.sac] ?? 0n) as bigint;
+        const pvpStroops = pvpEarningsMap[a.sac] ?? 0n;
+        const totalStroops = vaultStroops + pvpStroops;
         const daily = dailies[i] ?? 0n;
         return {
           asset: a.symbol,
           displayName: a.displayName,
-          totalEarned: stroopsToXlm(earnedStroops as bigint),
-          totalEarnedStroops: (earnedStroops as bigint).toString(),
+          totalEarned: stroopsToXlm(totalStroops),
+          totalEarnedStroops: totalStroops.toString(),
+          // Break out for clients/share cards that want the split.
+          vsAiEarned: stroopsToXlm(vaultStroops),
+          pvpEarned: stroopsToXlm(pvpStroops),
           dailyRemaining: stroopsToXlm(daily as bigint),
         };
       });
@@ -93,8 +111,16 @@ export function playerRouter(services: Services): Router {
         stakedWins: stats.wins,
         stakedLosses: stats.losses,
         stakedGames: stats.gamesPlayed,
-        currentStreak: stats.currentStreak,
-        bestStreak: stats.bestStreak,
+        // Cross-mode streaks (Redis-tracked across vs-AI, casual, PvP).
+        // Falls back to the on-chain vault streak if Redis is empty.
+        // For players whose wins predate the streak ledger, surface a
+        // truthful lower bound: any wins at all → best ≥ 1.
+        currentStreak: streaks.current || stats.currentStreak,
+        bestStreak: (() => {
+          const cross = Math.max(streaks.best, stats.bestStreak);
+          const wins = Number(redisWins) || stats.wins;
+          return cross === 0 && wins > 0 ? 1 : cross;
+        })(),
         assets: perAsset,
       });
     } catch (err) {

@@ -159,6 +159,72 @@ export class GameStateStore {
     return map;
   }
 
+  // ---- PvP staked earnings (backend-tracked, mirrors vault layout) ----
+  //
+  // The CrackdDuel contract pays winners but doesn't keep a per-player
+  // earnings ledger the way CrackdVault does. To keep the profile + per-
+  // asset leaderboard honest, we mirror PvP wins into Redis ourselves,
+  // keyed by SAC (matching the on-chain `getPlayerEarnings` map shape so
+  // they can be merged additively without translation).
+  //
+  // Two stores:
+  //  - HASH `pvp:earnings:{wallet}` — field=sac, value=stroops earned
+  //  - ZSET `pvp:lb:{sac}`          — score=stroops earned, member=wallet
+  //                                   (used for the per-asset leaderboard)
+
+  async recordPvpEarnings(
+    wallet: string,
+    sac: string,
+    stroops: bigint,
+  ): Promise<void> {
+    if (!wallet || wallet === "vault") return;
+    if (stroops <= 0n) return;
+    // Stroops fit in JS Number for any plausible stake (1 XLM = 1e7).
+    // If we ever support multi-million-XLM stakes we'd need a Lua script
+    // to add bigints — not worth the complexity until then.
+    const n = Number(stroops);
+    await Promise.all([
+      this.redis.hincrby(`pvp:earnings:${wallet}`, sac, n),
+      this.redis.zincrby(`pvp:lb:${sac}`, n, wallet),
+    ]);
+  }
+
+  async getPvpEarnings(wallet: string): Promise<Record<string, bigint>> {
+    const raw = await this.redis.hgetall(`pvp:earnings:${wallet}`);
+    const out: Record<string, bigint> = {};
+    for (const [sac, val] of Object.entries(raw)) {
+      try {
+        out[sac] = BigInt(val);
+      } catch {
+        // skip corrupt entries
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Top earners for a given SAC, sorted by stroops earned (desc).
+   * Returns wallet + earned-stroops pairs; caller pads with usernames.
+   */
+  async getPvpLeaderboard(
+    sac: string,
+    limit = 50,
+  ): Promise<Array<{ wallet: string; earnedStroops: bigint }>> {
+    const rows = await this.redis.zrevrange(
+      `pvp:lb:${sac}`,
+      0,
+      limit - 1,
+      "WITHSCORES",
+    );
+    const out: Array<{ wallet: string; earnedStroops: bigint }> = [];
+    for (let i = 0; i < rows.length; i += 2) {
+      const wallet = rows[i]!;
+      const score = rows[i + 1]!;
+      out.push({ wallet, earnedStroops: BigInt(score) });
+    }
+    return out;
+  }
+
   // ---- All-players leaderboard (backend-tracked, all modes) ----
 
   async recordGameResult(wallet: string, won: boolean): Promise<void> {
@@ -166,9 +232,28 @@ export class GameStateStore {
     await this.redis.zincrby("lb:games", 1, wallet);
     if (won) {
       await this.redis.zincrby("lb:wins", 1, wallet);
+      // Bump current streak, then update best to max(current, best).
+      const current = Number(
+        await this.redis.zincrby("lb:streak:current", 1, wallet),
+      );
+      // ZADD with GT only writes if the new score beats the existing one,
+      // giving us best = max(best, current) atomically.
+      await this.redis.zadd("lb:streak:best", "GT", current, wallet);
     } else {
       await this.redis.zincrby("lb:losses", 1, wallet);
+      // Reset current streak to 0 — best is sticky.
+      await this.redis.zadd("lb:streak:current", 0, wallet);
     }
+  }
+
+  async getStreaks(
+    wallet: string,
+  ): Promise<{ current: number; best: number }> {
+    const [c, b] = await Promise.all([
+      this.redis.zscore("lb:streak:current", wallet),
+      this.redis.zscore("lb:streak:best", wallet),
+    ]);
+    return { current: Number(c) || 0, best: Number(b) || 0 };
   }
 
   async getAllPlayersLeaderboard(

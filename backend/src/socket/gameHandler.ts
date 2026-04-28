@@ -513,6 +513,33 @@ async function resolveFinished(
           state.contractGameId,
           outcome.winner,
         );
+        // Mirror the on-chain payout into our PvP earnings ledger so
+        // the profile + per-asset leaderboard reflect duel wins. The
+        // duel contract pays `pot - 2.5% fee` (see crackd-duel/src/lib.rs
+        // declare_winner). We compute the same number here using the
+        // canonical i128 math so storage stays in sync without a second
+        // RPC roundtrip.
+        if (state.stakeAsset && state.stakeAmount > 0) {
+          try {
+            const sac = services.assets.get(
+              state.stakeAsset as never,
+            ).sac;
+            const pot = BigInt(state.stakeAmount) * 2n;
+            const fee = (pot * 250n) / 10000n; // PROTOCOL_FEE_BPS = 250
+            const netStroops = pot - fee;
+            payoutStroops = netStroops;
+            await services.gameStore.recordPvpEarnings(
+              outcome.winner,
+              sac,
+              netStroops,
+            );
+          } catch (err) {
+            logger.warn(
+              { err, gameId: state.gameId },
+              "failed to record pvp earnings",
+            );
+          }
+        }
       }
     }
   } catch (err) {
