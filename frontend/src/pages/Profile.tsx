@@ -18,6 +18,7 @@ import { api } from "../lib/api";
 import { shortAddress } from "../lib/stellar";
 import { useWalletStore } from "../store/walletStore";
 import { Avatar } from "../components/Avatar";
+import { ConnectModal } from "../components/ConnectModal";
 
 const MAGENTA = "#FF00A8";
 
@@ -31,7 +32,8 @@ function getRank(wins: number): { title: string; tier: number; next: number } {
 }
 
 export default function Profile() {
-  const { address, connect, connecting } = useWalletStore();
+  const { address, connecting } = useWalletStore();
+  const [connectOpen, setConnectOpen] = useState(false);
 
   const statsQ = useQuery({
     queryKey: ["player", address],
@@ -41,7 +43,15 @@ export default function Profile() {
   });
 
   if (!address) {
-    return <NotConnected connecting={connecting} onConnect={connect} />;
+    return (
+      <>
+        <NotConnected
+          connecting={connecting}
+          onConnect={() => setConnectOpen(true)}
+        />
+        <ConnectModal open={connectOpen} onClose={() => setConnectOpen(false)} />
+      </>
+    );
   }
 
   if (statsQ.isLoading) return <LoadingState />;

@@ -34,7 +34,7 @@ import {
   buildVaultStakeTx,
   toStroops,
 } from "../lib/stellar";
-import { signTransaction } from "../lib/wallet";
+import { getActiveProvider } from "../lib/wallet";
 
 import { ErrorBar } from "../components/game/ErrorBar";
 import { ModePicker, type Mode } from "../components/game/ModePicker";
@@ -186,7 +186,8 @@ export default function Game() {
           mode === "vs_ai_staked"
             ? await buildVaultStakeTx(address, chosen.sac, stroops)
             : await buildDuelCreateTx(address, chosen.sac, stroops);
-        const sig = await signTransaction(xdr);
+        const provider = await getActiveProvider();
+        const sig = await provider.signTransaction(xdr);
         signedXdr = sig.signedXdr;
       }
 
@@ -235,7 +236,8 @@ export default function Game() {
         if (!address) throw new Error("Connect a wallet to join a staked match");
         if (!gs.contractGameId) throw new Error("Contract game id missing");
         const xdr = await buildDuelJoinTx(address, gs.contractGameId);
-        const sig = await signTransaction(xdr);
+        const provider = await getActiveProvider();
+        const sig = await provider.signTransaction(xdr);
         signedXdr = sig.signedXdr;
       }
 

@@ -279,6 +279,21 @@ export class GameStateStore {
     return result;
   }
 
+  // ---- Onboarding (one-shot friendbot funding per address) ----
+  //
+  // Used when a Privy user first signs in: the embedded Stellar wallet
+  // has 0 XLM, so the backend hits friendbot once and sets a flag so
+  // the same address can't be re-funded on every reload.
+
+  async wasFunded(walletAddress: string): Promise<boolean> {
+    return (await this.redis.exists(`onboard:funded:${walletAddress}`)) === 1;
+  }
+
+  async markFunded(walletAddress: string): Promise<void> {
+    // No TTL — funding is one-shot per address forever.
+    await this.redis.set(`onboard:funded:${walletAddress}`, "1");
+  }
+
   async nextHubSessionId(): Promise<number> {
     const n = await this.redis.incr("crackd:hub:session_seq");
     const MAX_U32 = 0xffff_ffff;

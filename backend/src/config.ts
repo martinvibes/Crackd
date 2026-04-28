@@ -66,6 +66,13 @@ const schema = z.object({
   GAME_SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(7200),
   CHAT_RATE_LIMIT_MS: z.coerce.number().int().nonnegative().default(3000),
   TAUNT_RATE_LIMIT_MS: z.coerce.number().int().nonnegative().default(30000),
+
+  // Friendbot endpoint used to fund fresh Privy embedded wallets on first
+  // sign-in. Testnet only; the default is the public Stellar friendbot.
+  STELLAR_FRIENDBOT_URL: z
+    .string()
+    .url()
+    .default("https://friendbot.stellar.org"),
 });
 
 export type AppConfig = z.infer<typeof schema>;

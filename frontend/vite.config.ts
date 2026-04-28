@@ -11,6 +11,15 @@ export default defineConfig({
     "process.env": {},
   },
   optimizeDeps: {
-    include: ["buffer"],
+    include: [
+      "buffer",
+      // Privy lazy-loads internal chunks (LandingScreen, OAuth flows, etc.)
+      // when the login modal opens. Listing the SDK + the extended-chains
+      // entry tells Vite to pre-bundle ALL of it up front so those chunks
+      // don't 504 with "Outdated Optimize Dep" the first time a user
+      // clicks "Continue with email".
+      "@privy-io/react-auth",
+      "@privy-io/react-auth/extended-chains",
+    ],
   },
 });

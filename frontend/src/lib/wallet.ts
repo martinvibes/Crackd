@@ -79,3 +79,44 @@ export const networkPassphrase =
     : "Test SDF Network ; September 2015";
 
 export const isTestnet = network === Networks.TESTNET;
+
+// ============================================================
+// WalletProvider abstraction
+// ============================================================
+//
+// The rest of the app should not know which wallet backend is in use.
+// `kitProvider` wraps the existing Stellar Wallets Kit path; `privyProvider`
+// (in ./privy) wraps the Privy embedded-Stellar-wallet path. `getActiveProvider`
+// resolves the current one off `walletStore.kind`.
+
+import type { WalletProvider } from "./walletProvider";
+
+export const kitProvider: WalletProvider = {
+  kind: "kit",
+  async getAddress() {
+    const { address } = await kit.getAddress();
+    if (!address) throw new Error("Kit wallet has no address");
+    return address;
+  },
+  async signTransaction(xdr: string) {
+    return await signTransaction(xdr);
+  },
+  async disconnect() {
+    await kit.disconnect();
+  },
+};
+
+/**
+ * Resolve the currently-active provider from walletStore. Imports are
+ * lazy to avoid the circular dep — walletStore imports lib/wallet for
+ * `connectWallet`, so this module can't statically import the store.
+ */
+export async function getActiveProvider(): Promise<WalletProvider> {
+  const { useWalletStore } = await import("../store/walletStore");
+  const kind = useWalletStore.getState().kind;
+  if (kind === "privy") {
+    const mod = (await import("./privy")) as { privyProvider: WalletProvider };
+    return mod.privyProvider;
+  }
+  return kitProvider;
+}

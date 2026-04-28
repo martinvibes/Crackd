@@ -82,6 +82,11 @@ export const api = {
   player: (wallet: string) => j<PlayerStats>(`/api/player/${wallet}`),
   game: (gameId: string) => j<unknown>(`/api/game/${gameId}`),
   resolveInvite: (code: string) => j<{ gameId: string }>(`/api/invite/${code}`),
+  onboardingFund: (walletAddress: string) =>
+    j<{ funded: boolean; alreadyFunded: boolean }>(`/api/onboarding/fund`, {
+      method: "POST",
+      body: JSON.stringify({ walletAddress }),
+    }),
   setUsername: (wallet: string, username: string) =>
     j<{ ok: boolean; username: string }>(`/api/player/${wallet}/username`, {
       method: "PUT",

@@ -19,6 +19,7 @@ import { poolRouter } from "./routes/pool.js";
 import { leaderboardRouter } from "./routes/leaderboard.js";
 import { playerRouter } from "./routes/player.js";
 import { gameRouter } from "./routes/game.js";
+import { onboardingRouter } from "./routes/onboarding.js";
 import { attachSocketServer } from "./socket/index.js";
 
 async function main() {
@@ -44,6 +45,7 @@ async function main() {
   app.use("/api", leaderboardRouter(services));
   app.use("/api", playerRouter(services));
   app.use("/api", gameRouter(services));
+  app.use("/api", onboardingRouter(services, cfg));
 
   const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     req.log?.error({ err }, "unhandled route error");
